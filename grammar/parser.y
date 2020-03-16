@@ -7,7 +7,6 @@
 %error { parserError }
 
 %token
-{-            comment       { Comment $$ } -}
 {-            '_'           { Underscore } -}
               '('           { LeftParen }
               ')'           { RightParen }
@@ -21,6 +20,7 @@
               '='           { Be }
 
               '+'           { Plus }
+              '-'           { Minus }
               '*'           { Multiply }
               '/'           { Divide }
               '%'           { Modulo }
@@ -30,7 +30,6 @@
               '>'           { Greater }
               '|'           { Or }
               '&'           { And }
-              '-'           { Minus }
               eq            { Equal }
               uneq          { UnEqual }
 
@@ -62,8 +61,8 @@
 %left '*' '/' '%'
 %%
 
-TopLevel    : Expression Semi_M                     { $1 }
-            | Expression Expression_Seq Semi_M      { $1 : $2 }
+TopLevel    : Expression Semi_M                     { $1 -- ';' }
+            | Expression Expression_Seq Semi_M      { $1 : $2 -- ';' }
             | {- empty -}                           { [] }
 
 
