@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+LEXICAL_GRAMMAR="./grammar/scanner.x"
+SYNTACTICAL_GRAMMAR="./grammar/parser.y"
+
+SCANNER_INFO="./grammar/scanner.info"
+PARSER_INFO="./grammar/parser.info"
+
+echo "Generating Scanner with Alex"
+alex "$LEXICAL_GRAMMAR" -o ./src/Scanner.hs --info="$SCANNER_INFO"
+echo ""
+
+echo "Info in $SCANNER_INFO"
+
+echo
+echo "................................."
+echo 
+
+echo "Generating Parser with Happy."
+happy "$SYNTACTICAL_GRAMMAR" -o ./src/Parser.hs --info="$PARSER_INFO"
+echo ""
+
+echo "Info in $PARSER_INFO"
