@@ -1,6 +1,12 @@
 module Main where
 
-import Lib
+import Scanner (scan)
+import Parser (parse)
+import Tokens (Token(..))
+
+-- import Lib
 
 main :: IO ()
-main = someFunc
+main = do
+  let i = "begin let a = 23; let b = a + a; b * b end"
+  putStrLn $ show $ parse $ scan i
