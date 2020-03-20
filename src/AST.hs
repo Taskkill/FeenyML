@@ -3,7 +3,7 @@ module AST where
 import qualified Tokens as Token 
 
 data AST
-  = Multiply
+  = Multiply -- These should be Operators
   | Plus
   | Minus
   | Divide
@@ -15,7 +15,7 @@ data AST
   | LesserEqual
   | GreaterEqual
   | And
-  | Or
+  | Or -- This is the last non-AST AST :D -- TODO: move to separate data type
   | Number Int
   | Boolean Bool
   | Unit
@@ -23,7 +23,6 @@ data AST
   | FunctionDef String [AST] AST
   | Let String AST
   | OperatorDef AST [AST] AST
-  | Extends AST
   | ObjectDef AST [AST] [AST]
   | ReAssignment String AST
   | FieldReAssignment AST AST
@@ -34,7 +33,6 @@ data AST
   | While AST AST
   | ObjectFieldAccess AST [AST] String
   | Method AST [AST] AST
-  | Array
   | ArrayDef AST AST
   | Application AST [AST]
   | ArrayAccess AST AST

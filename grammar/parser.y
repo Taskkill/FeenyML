@@ -124,7 +124,7 @@ Operator_Def    :: { AST }
                 : function Operator '(' Param_List ')' rarrow Expression      { OperatorDef $2 $4 $7 }
 
 Extends         :: { AST }
-                : extends Expression                                          { Extends $2 }
+                : extends Expression                                          { $2 }
 
 Object_Def      :: { AST }
                 : object Param_List Extends begin Object_Body end             { ObjectDef $3 $2 $5 }
@@ -208,7 +208,6 @@ Value_Seq       :: { [AST] }
 Callable        :: { AST }
                 : identifier                                                  { Identifier $1 }
                 | Object_Field                                                { $1 }
-                | array                                                       { Array }
 
 Application     :: { AST }
                 : Callable '(' Arg_List ')'                                   { Application $1 $3 }
