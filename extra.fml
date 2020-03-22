@@ -1,0 +1,6 @@
+let a = 4;
+let b =
+  begin
+  let c = a
+  end;
+b
