@@ -1,12 +1,17 @@
 module Main where
 
+import Tokens (Token(..))
 import Scanner (scan)
 import Parser (parse)
-import Tokens (Token(..))
+import Interpreter (evaluate)
 
 -- import Lib
 
 main :: IO ()
 main = do
-  let i = "begin let a = 23; let b = a + a; b * b end"
-  putStrLn $ show $ parse $ scan i
+  i <- getContents
+  let ast = parse $ scan i
+  r <- evaluate ast
+  case r of
+    Left msg -> print msg
+    Right v -> print v
