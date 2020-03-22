@@ -1,0 +1,8 @@
+let a =
+  begin
+  let a = 23;
+  let b = 42;
+  a + b
+  end
+;
+a

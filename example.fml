@@ -1,0 +1,21 @@
+begin
+  let a = 23;
+  let b = a + a;
+  b * b
+end;
+
+begin
+  let aa = 42;
+  aa <- 23;
+  let b = aa + aa
+end;
+
+let a = 23;
+
+function foo () -> a;
+
+foo()
+
+a <- 42;
+
+foo()
