@@ -1,8 +1,9 @@
+let c = 4;
 let a =
   begin
   let a = 23;
   let b = 42;
-  a + b
+  a + b + c
   end
 ;
 a
