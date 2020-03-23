@@ -48,6 +48,14 @@ updateBindings (n, v) ((n', v') : bs) =
     then (n, v) : bs
     else (n', v') : updateBindings (n, v) bs
 
+bindParamsToArgs :: [String] -> [AST] -> Ctx -> IO (Either String Ctx)
+bindParamsToArgs [] [] ctx = return $ Right ctx
+bindParamsToArgs (n : ns) (v : vs) ctx = do
+  io <- interpretOne v ctx
+  case io of
+    (Left msg) -> return $ Left msg
+    (Right (ctx, val)) -> bindParamsToArgs ns vs $ addToBindings (n, val) ctx
+
 updateCtx :: Ctx -> Binding -> Ctx
 updateCtx ctx (n, v) =
   case ctx of
@@ -89,9 +97,9 @@ getValue name ctx =
         Nothing -> getValue name ctx
         Just _ -> getFromBindings name bs
 
-toIdentifierName :: AST -> String
-toIdentifierName ast =
-  undefined
+-- fnName :: AST -> String
+-- fnName (Expression (FunctionDef name _ _)) =
+  -- name
 
 evaluate :: [AST] -> IO (Either String Value)
 evaluate asts = do
@@ -155,7 +163,7 @@ interpretOne ast ctx =
             Right (ctx, value) ->
               return $ Right (addToBindings (n, value) ctx, Expression Unit)
     
-    ObjectDef _ _ _ ->
+    ObjectDef _ _ ->
       return $ Right (ctx, Object (objectCtx ast) ast)
 
     ReAssignment name value ->
@@ -199,15 +207,24 @@ interpretOne ast ctx =
     ArrayDef _ _ ->
       return $ Right (ctx, Object (objectCtx ast) ast)
  
-    Application fn args ->
-      case getValue (toIdentifierName fn) ctx of
+    Application (Identifier fname) args ->
+      case getValue fname ctx of
         Nothing -> do
           -- print "Runtime Error: Cannot apply undefined function " ++ show fn ++ " to it's arguments " ++ show args ++ "."
-          return $ Left $ "Runtime Error: Cannot apply undefined function " ++ show fn ++ " to it's arguments " ++ show args ++ "."
-        Just (Expression (FunctionDef name params body)) -> undefined
-          -- call interpret on the body
-          -- before that - add new local Context with parameter names bound to the argument values
+          return $ Left $ "Runtime Error: Cannot apply undefined function " ++ fname ++ " to it's arguments " ++ show args ++ "."
+        Just (Expression (FunctionDef _ params body)) -> do
+          io <- bindParamsToArgs params args $ addLocal ctx
+          case io of
+            Left msg -> return $ Left msg
+            Right c -> do
+              e <- interpretOne body c
+              case e of
+                Left msg -> return $ Left msg
+                Right (ctx, val) ->
+                  return $ Right (dropLocal ctx, val)
           -- ALSO - check if there is same number of Params as there is Args
+          -- add new local Context with parameter names bound to the argument values
+          -- call interpret on the body
 
     ArrayAccess exp member -> undefined
 
