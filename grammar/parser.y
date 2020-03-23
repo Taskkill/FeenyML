@@ -127,7 +127,7 @@ Extends         :: { AST }
                 : extends Expression                                          { $2 }
 
 Object_Def      :: { AST }
-                : object Param_List Extends begin Object_Body end             { ObjectDef $3 $2 $5 }
+                : object Extends begin Object_Body end             { ObjectDef $2 $4 }
 
 Object_Body     :: { [AST] }
                 : Member Semi_M                                               { [$1] }
@@ -185,12 +185,12 @@ Id_Op           :: { AST }
                 : identifier                                                  { Identifier $1 }
                 | Operator                                                    { $1 }
 
-Param_List      :: { [AST] }
-                : identifier Identifier_Seq Comma_M                           { (Identifier $1) : $2 }
+Param_List      :: { [String] }
+                : identifier Identifier_Seq Comma_M                           { $1 : $2 }
                 | {- empty -}                                                 { [] }
 
-Identifier_Seq  :: { [AST] }
-                : ',' identifier Identifier_Seq                               { (Identifier $2) : $3 }
+Identifier_Seq  :: { [String] }
+                : ',' identifier Identifier_Seq                               { $2 : $3 }
                 | {- empty -}                                                 { [] }
 
 Comma_M         :: { () }

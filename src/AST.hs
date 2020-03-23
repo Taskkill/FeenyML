@@ -20,10 +20,10 @@ data AST
   | Boolean Bool
   | Unit
   | Block [AST]
-  | FunctionDef String [AST] AST
+  | FunctionDef String [String] AST
   | Let String AST
-  | OperatorDef AST [AST] AST
-  | ObjectDef AST [AST] [AST]
+  | OperatorDef AST [String] AST
+  | ObjectDef AST [AST]
   | ReAssignment String AST
   | FieldReAssignment AST AST
   | ArrayIndexReAssignment AST AST
