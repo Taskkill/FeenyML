@@ -14,19 +14,19 @@ data Ctx
   = Global [Binding]
   | Local [Binding] Ctx
 
--- addLocal :: Ctx -> Ctx
--- addLocal ctx = Local [] ctx
+addLocal :: Ctx -> Ctx
+addLocal ctx = Local [] ctx
 
--- dropLocal :: Ctx -> Ctx
--- dropLocal Global bs = Global bs
--- dropLocal Local _ ctx = ctx
+dropLocal :: Ctx -> Ctx
+dropLocal (Global bs) = Global bs
+dropLocal (Local _ ctx) = ctx
 
 -- addToLocal :: Ctx -> Binding
 -- addToLocal = undefined
 
-addToCtx :: Binding -> Ctx -> Ctx
-addToCtx (n, v) (Global bs) = Global $ (n, v) : bs
-addToCtx (n , v) (Local bs ctx) = Local ((n, v) : bs) ctx
+addToBindings :: Binding -> Ctx -> Ctx
+addToBindings (n, v) (Global bs) = Global $ (n, v) : bs
+addToBindings (n , v) (Local bs ctx) = Local ((n, v) : bs) ctx
 
 getFromBindings :: String -> [Binding] -> Maybe Value
 getFromBindings _ [] = Nothing
@@ -73,7 +73,7 @@ initCtx ctx (ast : asts) =
     FunctionDef name _ _ ->
       case getValue name ctx of
         Nothing ->
-          case initCtx (addToCtx (name, Expression ast) ctx) asts of
+          case initCtx (addToBindings (name, Expression ast) ctx) asts of
             Left msg -> Left msg
             Right ctx -> Right ctx
         Just _ -> Left $ "Runtime Error: You can not redefine already defined function " ++ name ++ "."
@@ -130,8 +130,12 @@ interpretOne ast ctx =
     Unit ->
       return $ Right (ctx, Expression ast)
     
-    Block exprs ->
-      interpret exprs ctx
+    Block exprs -> do
+      e <- interpret exprs $ addLocal ctx
+      case e of
+        Left msg -> return $ Left msg
+        Right (ctx, val) ->
+          return $ Right (dropLocal ctx, val)
     
     -- In Global/Top-level context - Function Declarations are hoisted, nowhere else they can occur
     FunctionDef _ _ _ ->
@@ -149,13 +153,7 @@ interpretOne ast ctx =
           case r of
             Left msg -> return $ Left msg
             Right (ctx, value) ->
-              return $ Right (addToCtx (n, value) ctx, Expression Unit)
-      -- case ctx of
-      --   Global _ -> (ctx, Expression Unit)
-      --   Local _ _ ->
-      --     case getFromLocal n of
-      --       Just _ = ctx -> error "Runtime Error: You can not redefine local variable " ++ n ++ "."
-      --       Nothing -> (addToCtx (n, interpretOne ctx v), Expression Unit)
+              return $ Right (addToBindings (n, value) ctx, Expression Unit)
     
     ObjectDef _ _ _ ->
       return $ Right (ctx, Object (objectCtx ast) ast)
@@ -214,7 +212,7 @@ interpretOne ast ctx =
     ArrayAccess exp member -> undefined
 
     Print format args -> do
-      print format
+      print $ show format ++ show args
       return $ Right (ctx, Expression Unit)
 
     Operation op left right -> do
@@ -223,3 +221,38 @@ interpretOne ast ctx =
       case (op, l, r) of
         (Plus, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
           return $ Right (ctx, Expression $ Number $ a + b)
+        (Minus, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Number $ a - b)
+        (Multiply, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Number $ a * b)
+        (Divide, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Number $ a `div` b) -- check if not division by zero
+        (Modulo, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Number $ a `mod` b)
+        
+        (Equal, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a == b)
+        (Equal, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a == b)
+        
+        (UnEqual, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ not $ a == b)
+        (UnEqual, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ not $ a == b)
+        
+        (Lesser, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a < b)
+        (Greater, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a > b)
+        (LesserEqual, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a <= b)
+        (GreaterEqual, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a >= b)
+        
+        (And, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a && b)
+        (Or, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
+          return $ Right (ctx, Expression $ Boolean $ a || b)
+
+
+
