@@ -118,7 +118,7 @@ Variable_Def    :: { AST }
                 : let identifier '=' Expression                               { Let $2 $4 }
 
 Array_Def       :: { AST }
-                : array '(' Expression '.' Expression ')'                     { ArrayDef $3 $5 }
+                : array '(' Expression ',' Expression ')'                     { ArrayDef $3 $5 }
 
 Operator_Def    :: { AST }
                 : function Operator '(' Param_List ')' rarrow Expression      { OperatorDef $2 $4 $7 }
