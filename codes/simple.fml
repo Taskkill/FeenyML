@@ -9,11 +9,15 @@ let a =
   a + b + c
   end
 ;
+/* a = 69 *\
+
 let b = true;
 let d = false;
 let e = b | d;
+
 let f = foo(a, a);
 f <- 4;
+
 let val = 0;
 function get () ->
   begin
@@ -22,4 +26,10 @@ function get () ->
   v
   end;
 let arr = array(10, get());
+/* [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] *\
+
+val <- 0;
+arr <- array(10, begin get() end);
+/* [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] *\
+
 arr[9]
