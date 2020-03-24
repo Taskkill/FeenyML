@@ -68,11 +68,39 @@ updateCtx ctx (n, v) =
         Nothing -> Local bs $ updateCtx ctx' (n, v)
         Just v' -> Local (updateBindings (n, v) bs) ctx'
 
-objectCtx :: AST -> [Binding] -- maybe free initCtx' from initCtx and call that -- but methods :(
-objectCtx = undefined
+-- interpret' :: [AST] -> Ctx -> IO [Either String (Ctx, Value)]
+--     interpret' [] _ = return []
+--     interpret' (ast : asts) ctx = do
+--       r <- interpretOne ast ctx
+--       (case r of
+--         Left msg -> return [Left msg]
+--         Right (ctx', head) -> do
+--           tail <- interpret' asts ctx'
+--           return $ Right (ctx', head) : tail)
+
+
+fill :: Int -> Ctx -> AST -> IO (Either String (Ctx, [Binding]))
+fill size ctx ast =
+  fill' size 0 ast ctx []
+    where
+      fill' :: Int -> Int -> AST -> Ctx -> [Binding] -> IO (Either String (Ctx, [Binding]))
+      fill' 0 _ _ ctx bs = return $ Right (ctx, bs)
+      fill' size index ast ctx bs = do
+        io <- interpretOne ast ctx
+        case io of
+          Left msg -> return $ Left msg
+          Right (c, v) ->
+            fill' (size  - 1) (index + 1) ast c $ bs ++ [(show index, v)]
+
+objectCtx :: AST -> Ctx -> IO (Either String (Ctx, [Binding])) -- maybe free initCtx' from initCtx and call that -- but methods :(
+objectCtx (ArrayDef len init) ctx = do
+  io <- interpretOne len ctx
+  case io of
+    Left msg -> return $ Left msg
+    Right (c, Expression (Number i)) ->
+      fill i c init
 -- smyslem je projit Object a ulozit do Bindings vsechny lokalni variables a metody a operatory
 -- ObjectDef
--- ArrayDef
 
 initCtx :: Ctx -> [AST] -> Either String Ctx
 initCtx ctx [] = Right ctx
@@ -163,8 +191,11 @@ interpretOne ast ctx =
             Right (ctx, value) ->
               return $ Right (addToBindings (n, value) ctx, Expression Unit)
     
-    ObjectDef _ _ ->
-      return $ Right (ctx, Object (objectCtx ast) ast)
+    ObjectDef _ _ -> do
+      io <- (objectCtx ast ctx)
+      case io of
+        Left msg -> return $ Left msg
+        Right (c, b) -> return $ Right (c, Object b ast)
 
     ReAssignment name value ->
       case getValue name ctx of
@@ -176,7 +207,7 @@ interpretOne ast ctx =
           case r of
             Left msg -> return $ Left msg
             Right (ctx, value) ->
-              interpretOne ast $ updateCtx ctx (name, value)
+              return $ Right (updateCtx ctx (name, value), Expression Unit)
 
     FieldReAssignment accessor value ->
       -- I shoudl register the value in the scope specific to the Object or Array
@@ -204,8 +235,11 @@ interpretOne ast ctx =
     ObjectFieldAccess _ _ _ -> undefined
       -- evaluateObjectFieldAccess ast ctx
 
-    ArrayDef _ _ ->
-      return $ Right (ctx, Object (objectCtx ast) ast)
+    ArrayDef _ _ -> do
+      io <- objectCtx ast ctx
+      case io of
+        Left msg -> return $ Left msg
+        Right (c, b) -> return $ Right (c, Object b ast)
  
     Application (Identifier fname) args ->
       case getValue fname ctx of
@@ -223,10 +257,22 @@ interpretOne ast ctx =
                 Right (ctx, val) ->
                   return $ Right (dropLocal ctx, val)
           -- ALSO - check if there is same number of Params as there is Args
-          -- add new local Context with parameter names bound to the argument values
-          -- call interpret on the body
 
-    ArrayAccess exp member -> undefined
+    ArrayAccess accessible member -> do
+      io <- interpretOne accessible ctx
+      case io of
+        Left msg -> return $ Left msg
+        Right (c, v) ->
+          case v of
+            Expression _ -> return $ Left "Runtime Error: operator [] used on non Object type."
+            Object bs ast -> do
+              io <- interpretOne member c
+              case io of
+                Left msg -> return $ Left msg
+                Right (c, Expression (Number i)) ->
+                  case getFromBindings (show i) bs of
+                    Nothing -> return $ Right (c, Expression Unit)
+                    Just val -> return $ Right (c, val)
 
     Print format args -> do
       print $ show format ++ show args
@@ -270,6 +316,3 @@ interpretOne ast ctx =
           return $ Right (ctx, Expression $ Boolean $ a && b)
         (Or, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
           return $ Right (ctx, Expression $ Boolean $ a || b)
-
-
-
