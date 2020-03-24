@@ -92,13 +92,23 @@ fill size ctx ast =
           Right (c, v) ->
             fill' (size  - 1) (index + 1) ast c $ bs ++ [(show index, v)]
 
+fromValue :: Value -> AST
+fromValue (Expression ast) = ast
+fromValue (Object _ ast) = ast
+
 objectCtx :: AST -> Ctx -> IO (Either String (Ctx, [Binding])) -- maybe free initCtx' from initCtx and call that -- but methods :(
 objectCtx (ArrayDef len init) ctx = do
   io <- interpretOne len ctx
   case io of
     Left msg -> return $ Left msg
     Right (c, Expression (Number i)) ->
-      fill i c init
+      case init of
+        Application _ _ -> do
+          io <- interpretOne init c
+          case io of
+            Left msg -> return $ Left msg
+            Right (c, val) -> fill i c $ fromValue val
+        _ -> fill i c init
 -- smyslem je projit Object a ulozit do Bindings vsechny lokalni variables a metody a operatory
 -- ObjectDef
 
