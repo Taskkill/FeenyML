@@ -13,4 +13,13 @@ let b = true;
 let d = false;
 let e = b | d;
 let f = foo(a, a);
-f
+f <- 4;
+let val = 0;
+function get () ->
+  begin
+  let v = val;
+  val <- v + 1;
+  v
+  end;
+let arr = array(10, get());
+arr[9]
