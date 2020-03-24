@@ -12,7 +12,7 @@ $alpha = [a-zA-Z]
 tokens :- 
 
   $white+                                 ;
-  \(\*([^\)][^\*])*\)\*                   ;
+  (\/\*([^\)][^\*][\s]*)*\*\\)            ;
   \(                                      { \s -> LeftParen }
   \)                                      { \s -> RightParen }
   \[                                      { \s -> LeftBracket }
