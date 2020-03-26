@@ -233,7 +233,18 @@ interpretOne ast ctx =
             _ -> return $ Left $ "Runtime Error: Condition " ++ show v ++ " is not a Bool value."
 
     -- TODO: implement
-    While _ _ -> undefined
+    While cond do' -> do
+      io <- interpretOne cond ctx
+      case io of
+        Left msg -> return $ Left msg
+        Right (c, (Expression (Boolean b))) ->
+          if b
+            then do
+              io <- interpretOne do' c
+              case io of
+                Left msg -> return $ Left msg
+                Right (c, _) -> interpretOne (While cond do') c
+            else return $ Right (c, Expression Unit)
     -- evaluate the condition
     -- take new context and evaluate? the body --- body does not necessarily get new context
     -- again - evaluate condition with brand new context
