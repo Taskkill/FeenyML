@@ -61,5 +61,9 @@ while cond
   val2 <- val2 + 23;
   if val2 >= 10000 then cond <- false else begin end
   end;
-val2
-/* 10005 *\
+val2;
+/*  10005 *\
+
+let test = 0;
+while test < 100 do test <- test + 3;
+test
