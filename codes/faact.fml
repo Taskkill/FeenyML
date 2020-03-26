@@ -1,0 +1,10 @@
+function fact (num) ->
+  begin
+  function faact (n, acc) ->
+      if (n == 0)
+      then acc
+      else faact(n - 1, acc * n);
+  faact(num, 1)
+  end;
+
+fact(10)
