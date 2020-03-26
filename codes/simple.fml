@@ -44,6 +44,11 @@ function inner () ->
 
 inner()
 end;
-
-print("Hello FeenyML World!")
 /* 88 *\
+
+function isEven (num) -> (num % 2) == 0;
+begin
+let nn = 1146;
+if isEven(nn) then 23 else 42
+end
+/* 23 *\
