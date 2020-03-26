@@ -22,9 +22,6 @@ dropLocal :: Ctx -> Ctx
 dropLocal (Global bs) = Global bs
 dropLocal (Local _ ctx) = ctx
 
--- addToLocal :: Ctx -> Binding
--- addToLocal = undefined
-
 addToBindings :: Binding -> Ctx -> Ctx
 addToBindings (n, v) (Global bs) = Global $ (n, v) : bs
 addToBindings (n , v) (Local bs ctx) = Local ((n, v) : bs) ctx
@@ -71,17 +68,6 @@ updateCtx ctx (n, v) =
       case getFromBindings n bs of
         Nothing -> Local bs $ updateCtx ctx' (n, v)
         Just v' -> Local (updateBindings (n, v) bs) ctx'
-
--- interpret' :: [AST] -> Ctx -> IO [Either String (Ctx, Value)]
---     interpret' [] _ = return []
---     interpret' (ast : asts) ctx = do
---       r <- interpretOne ast ctx
---       (case r of
---         Left msg -> return [Left msg]
---         Right (ctx', head) -> do
---           tail <- interpret' asts ctx'
---           return $ Right (ctx', head) : tail)
-
 
 fill :: Int -> Ctx -> AST -> IO (Either String (Ctx, [Binding]))
 fill size ctx ast =
@@ -139,10 +125,6 @@ getValue name ctx =
         Nothing -> getValue name ctx
         Just _ -> getFromBindings name bs
 
--- fnName :: AST -> String
--- fnName (Expression (FunctionDef name _ _)) =
-  -- name
-
 evaluate :: [AST] -> IO (Either String Value)
 evaluate asts = do
   r <- interpret asts $ Global []
@@ -193,11 +175,8 @@ interpretOne ast ctx =
       return $ Right (ctx, Expression Unit)
 
     Let n v ->
-      -- If in the current Context -> Error
-      -- Otherwise -> add to Context
       case getFromLast n ctx of
         Just _ -> do
-          -- print "Runtime Error: You can not redefine local variable " ++ n ++ "."
           return $ Left $ "Runtime Error: You can not redefine local variable " ++ n ++ "."
         Nothing -> do
           r <- interpretOne v ctx
@@ -215,7 +194,6 @@ interpretOne ast ctx =
     ReAssignment name value ->
       case getValue name ctx of
         Nothing -> do
-          -- print "Runtime error: mutation of the variable " ++ name ++ " which does not exist."
           return $ Left $ "Runtime error: mutation of the variable " ++ name ++ " which does not exist."
         Just _ -> do
           r <- interpretOne value ctx
@@ -226,7 +204,7 @@ interpretOne ast ctx =
 
     -- TODO: implement
     FieldReAssignment accessor value ->
-      -- I shoudl register the value in the scope specific to the Object or Array
+      -- I shoudl re-register the value in the scope specific to the Object or Array
       -- decompose the accessor -> take two left-most and delegate the work to it?
       -- I need to lookup accessor in the ctx, check for all properties, reassign, update ctx
       undefined
@@ -239,11 +217,9 @@ interpretOne ast ctx =
     Identifier name ->
       case getValue name ctx of
         Nothing -> do
-          -- print "Runtime error: referencing of the variable " ++ name ++ " which does not exist."
           return $ Left $ "Runtime error: referencing of the variable " ++ name ++ " which does not exist."
         Just value -> return $ Right (ctx, value)
 
-    -- TODO: implement
     If condition then' else' -> do
       io <- interpretOne condition ctx
       case io of
@@ -256,11 +232,13 @@ interpretOne ast ctx =
                 else interpretOne else' c
             _ -> return $ Left $ "Runtime Error: Condition " ++ show v ++ " is not a Bool value."
 
-      -- evaluateIf ast ctx
-
     -- TODO: implement
     While _ _ -> undefined
-      -- evaluateWhile ast ctx
+    -- evaluate the condition
+    -- take new context and evaluate? the body --- body does not necessarily get new context
+    -- again - evaluate condition with brand new context
+    -- evaluate the body again?
+    -- continue until condition is true
 
     -- TODO: implement
     ObjectFieldAccess _ _ _ -> undefined
@@ -275,7 +253,6 @@ interpretOne ast ctx =
     Application (Identifier fname) args ->
       case getValue fname ctx of
         Nothing -> do
-          -- print "Runtime Error: Cannot apply undefined function " ++ show fn ++ " to it's arguments " ++ show args ++ "."
           return $ Left $ "Runtime Error: Cannot apply undefined function " ++ fname ++ " to it's arguments " ++ show args ++ "."
         Just (Expression (FunctionDef _ params body)) -> do
           io <- bindParamsToArgs params args ctx
@@ -310,7 +287,7 @@ interpretOne ast ctx =
       print $ show format ++ show args
       return $ Right (ctx, Expression Unit)
 
-    -- TODO: implement
+    -- TODO: implement the rest
     -- TODO: FIX: left side may mutate something which right side accesses
     Operation op left right -> do
       l <- interpretOne left ctx
