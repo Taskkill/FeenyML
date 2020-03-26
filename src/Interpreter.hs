@@ -13,6 +13,7 @@ type Binding = (String, Value)
 data Ctx
   = Global [Binding]
   | Local [Binding] Ctx
+  deriving (Show)
 
 addLocal :: Ctx -> Ctx
 addLocal ctx = Local [] ctx
@@ -49,12 +50,15 @@ updateBindings (n, v) ((n', v') : bs) =
     else (n', v') : updateBindings (n, v) bs
 
 bindParamsToArgs :: [String] -> [AST] -> Ctx -> IO (Either String Ctx)
-bindParamsToArgs [] [] ctx = return $ Right ctx
-bindParamsToArgs (n : ns) (v : vs) ctx = do
-  io <- interpretOne v ctx
-  case io of
-    (Left msg) -> return $ Left msg
-    (Right (ctx, val)) -> bindParamsToArgs ns vs $ addToBindings (n, val) ctx
+bindParamsToArgs params args ctx =
+  bindParamsToArgs' params args ctx []
+    where
+      bindParamsToArgs' [] [] ctx bs = return $ Right $ Local bs ctx
+      bindParamsToArgs' (n : ns) (v : vs) ctx bs = do
+        io <- interpretOne v ctx
+        case io of
+          (Left msg) -> return $ Left msg
+          (Right (ctx, val)) -> bindParamsToArgs' ns vs ctx $ (n, val) : bs
 
 updateCtx :: Ctx -> Binding -> Ctx
 updateCtx ctx (n, v) =
@@ -183,7 +187,8 @@ interpretOne ast ctx =
         Right (ctx, val) ->
           return $ Right (dropLocal ctx, val)
     
-    -- In Global/Top-level context - Function Declarations are hoisted, nowhere else they can occur
+    -- Functions can be declared in any scope-level
+    -- They are always hoisted
     FunctionDef _ _ _ ->
       return $ Right (ctx, Expression Unit)
 
@@ -219,12 +224,14 @@ interpretOne ast ctx =
             Right (ctx, value) ->
               return $ Right (updateCtx ctx (name, value), Expression Unit)
 
+    -- TODO: implement
     FieldReAssignment accessor value ->
       -- I shoudl register the value in the scope specific to the Object or Array
       -- decompose the accessor -> take two left-most and delegate the work to it?
       -- I need to lookup accessor in the ctx, check for all properties, reassign, update ctx
       undefined
 
+    -- TODO: implement
     ArrayIndexReAssignment accessor value ->
       -- same thing as above
       undefined
@@ -236,12 +243,26 @@ interpretOne ast ctx =
           return $ Left $ "Runtime error: referencing of the variable " ++ name ++ " which does not exist."
         Just value -> return $ Right (ctx, value)
 
-    If condition _ _ -> undefined
+    -- TODO: implement
+    If condition then' else' -> do
+      io <- interpretOne condition ctx
+      case io of
+        Left msg -> return $ Left msg
+        Right (c, v) ->
+          case v of
+            Expression (Boolean b) ->
+              if b
+                then interpretOne then' c
+                else interpretOne else' c
+            _ -> return $ Left $ "Runtime Error: Condition " ++ show v ++ " is not a Bool value."
+
       -- evaluateIf ast ctx
 
+    -- TODO: implement
     While _ _ -> undefined
       -- evaluateWhile ast ctx
 
+    -- TODO: implement
     ObjectFieldAccess _ _ _ -> undefined
       -- evaluateObjectFieldAccess ast ctx
 
@@ -257,7 +278,7 @@ interpretOne ast ctx =
           -- print "Runtime Error: Cannot apply undefined function " ++ show fn ++ " to it's arguments " ++ show args ++ "."
           return $ Left $ "Runtime Error: Cannot apply undefined function " ++ fname ++ " to it's arguments " ++ show args ++ "."
         Just (Expression (FunctionDef _ params body)) -> do
-          io <- bindParamsToArgs params args $ addLocal ctx
+          io <- bindParamsToArgs params args ctx
           case io of
             Left msg -> return $ Left msg
             Right c -> do
@@ -284,10 +305,13 @@ interpretOne ast ctx =
                     Nothing -> return $ Right (c, Expression Unit)
                     Just val -> return $ Right (c, val)
 
+    -- TODO: implement
     Print format args -> do
       print $ show format ++ show args
       return $ Right (ctx, Expression Unit)
 
+    -- TODO: implement
+    -- TODO: FIX: left side may mutate something which right side accesses
     Operation op left right -> do
       l <- interpretOne left ctx
       r <- interpretOne right ctx
@@ -326,3 +350,6 @@ interpretOne ast ctx =
           return $ Right (ctx, Expression $ Boolean $ a && b)
         (Or, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
           return $ Right (ctx, Expression $ Boolean $ a || b)
+        _ -> do
+          print (op, r)
+          return $ Left "error"
