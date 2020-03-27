@@ -64,14 +64,13 @@ import AST (AST(..), Operator(..))
 %%
 
 TopLevel        :: { [AST] }
-                : Expression Semi_M                                           { [$1] }
-                | Expression Expression_Seq Semi_M                            { $1 : $2 }
+                : Expression Expression_Seq Semi_M                            { $1 : $2 }
                 | {- empty -}                                                 { [] }
 
 
 Expression_Seq :: { [AST] }
                 : ';' Expression Expression_Seq                               { $2 : $3 }
-                | {- empty -}                                                 { [] }
+                | ';' Expression                                              { [$2] }
 
 Semi_M          :: { () }
                 : ';'                                                         { () }
@@ -155,6 +154,7 @@ Accessible      :: { AST }
                 | Application                                                 { $1 }
                 | Array_Def                                                   { $1 }
                 | Array_Access                                                { $1 }
+                | Object_Field                                                { $1 -- this is total disaster +10 red red conflicts }
                 | identifier                                                  { Identifier $1 }
                 | Literal                                                     { $1 }
 
@@ -172,11 +172,13 @@ Block           :: { AST }
                 : begin Expression Expression_Seq Semi_M end                  { Block $ $2 : $3 }
 
 Object_Field    :: { AST }
-                : Accessible '.' Field_Seq identifier                         { ObjectFieldAccess $1 $3 $4 }
+                : Accessible '.' Field_Seq                                    { ObjectFieldAccess $1 $3 }
+                | this '.' Field_Seq                                          { ObjectFieldAccess This $3 }
+                | this                                                        { This }
 
 Field_Seq       :: { [AST] }
                 : identifier '.' Field_Seq                                    { (Identifier $1) : $3 }
-                | {- empty -}                                                 { [] }
+                | identifier                                                  { [Identifier $1] }
 
 Param_List      :: { [String] }
                 : identifier Identifier_Seq Comma_M                           { $1 : $2 }

@@ -17,13 +17,14 @@ data AST
   | Identifier String
   | If AST AST AST
   | While AST AST
-  | ObjectFieldAccess AST [AST] String
+  | ObjectFieldAccess AST [AST]
   | Method AST [AST] AST
   | ArrayDef AST AST
   | Application AST [AST]
   | ArrayAccess AST AST
   | Print String [AST]
   | Operation Operator AST AST
+  | This
   deriving (Eq, Show)
 
 data Operator
