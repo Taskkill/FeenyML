@@ -1,0 +1,28 @@
+function foo (a, b) -> a + b;
+function bar (a) -> foo(a, a);
+
+let f = bar(23);
+f;
+/* 46 *\
+
+
+begin
+let x = 23;
+
+function inner () ->
+  begin
+  let y = 42;
+  function mostInner () -> x + x + y;
+  mostInner()
+  end;
+
+inner()
+end;
+/* 88 *\
+
+function isEven (num) -> (num % 2) == 0;
+begin
+let nn = 1146;
+if isEven(nn) then 23 else 42
+end;
+/* 23 *\

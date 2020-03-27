@@ -1,0 +1,5 @@
+let b = true;
+let d = false;
+let e = b | d;
+e
+/* true *\
