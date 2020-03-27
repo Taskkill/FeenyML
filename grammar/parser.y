@@ -2,7 +2,7 @@
 module Parser where
 
 import qualified Tokens as Token
-import AST (AST(..))
+import AST (AST(..), Operator(..))
 }
 
 %name parse
@@ -78,7 +78,7 @@ Semi_M          :: { () }
                 | {- empty -}                                                 { () }
 
 
-Operator        :: { AST }
+Operator        :: { Operator }
                 : '*'                                                         { Multiply }
                 | '+'                                                         { Plus }
                 | '-'                                                         { Minus }
@@ -125,9 +125,10 @@ Operator_Def    :: { AST }
 
 Extends         :: { AST }
                 : extends Expression                                          { $2 }
+                | {- empty -}                                                 { Unit }
 
 Object_Def      :: { AST }
-                : object Extends begin Object_Body end             { ObjectDef $2 $4 }
+                : object Extends begin Object_Body end                        { ObjectDef $2 $4 }
 
 Object_Body     :: { [AST] }
                 : Member Semi_M                                               { [$1] }
@@ -170,20 +171,12 @@ Loop            :: { AST }
 Block           :: { AST }
                 : begin Expression Expression_Seq Semi_M end                  { Block $ $2 : $3 }
 
-
 Object_Field    :: { AST }
                 : Accessible '.' Field_Seq identifier                         { ObjectFieldAccess $1 $3 $4 }
 
 Field_Seq       :: { [AST] }
                 : identifier '.' Field_Seq                                    { (Identifier $1) : $3 }
                 | {- empty -}                                                 { [] }
-
-Method          :: { AST }
-                : Accessible '.' Field_Seq Id_Op                              { Method $1 $3 $4 }
-
-Id_Op           :: { AST }
-                : identifier                                                  { Identifier $1 }
-                | Operator                                                    { $1 }
 
 Param_List      :: { [String] }
                 : identifier Identifier_Seq Comma_M                           { $1 : $2 }
