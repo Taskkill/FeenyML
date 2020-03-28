@@ -63,19 +63,13 @@ import AST (AST(..), Operator(..))
 %left '*' '/' '%'
 %%
 
-TopLevel        :: { [AST] }
-                : Expression Expression_Seq Semi_M                            { $1 : $2 }
+Program         :: { [AST] } 
+                : Expressions                                                 { $1 }
                 | {- empty -}                                                 { [] }
 
-
-Expression_Seq :: { [AST] }
-                : ';' Expression Expression_Seq                               { $2 : $3 }
-                | ';' Expression                                              { [$2] }
-
-Semi_M          :: { () }
-                : ';'                                                         { () }
-                | {- empty -}                                                 { () }
-
+Expressions     :: { [AST] }
+                : Expressions ';' Expression                                  { $1 ++ [$3] }
+                | Expression                                                  { [$1] }
 
 Operator        :: { Operator }
                 : '*'                                                         { Multiply }
@@ -130,18 +124,14 @@ Object_Def      :: { AST }
                 : object Extends begin Object_Body end                        { ObjectDef $2 $4 }
 
 Object_Body     :: { [AST] }
-                : Member Semi_M                                               { [$1] }
-                | Member Member_Seq Semi_M                                    { $1 : $2 }
+                : Member                                                      { [$1] }
+                | Object_Body ';' Member                                      { $1 ++ [$3] }
                 | {- empty -}                                                 { [] }
 
 Member          :: { AST }
                 : Variable_Def                                                { $1 }
                 | Function_Def                                                { $1 }
                 | Operator_Def                                                { $1 }
-
-Member_Seq      :: { [AST] }
-                : ';' Member Member_Seq                                       { $2 : $3 }
-                | {- empty -}                                                 { [] }
 
 Mutation        :: { AST }
                 : identifier larrow Expression                                { ReAssignment $1 $3 }
@@ -154,7 +144,6 @@ Accessible      :: { AST }
                 | Application                                                 { $1 }
                 | Array_Def                                                   { $1 }
                 | Array_Access                                                { $1 }
-                | Object_Field                                                { $1 -- this is total disaster +10 red red conflicts }
                 | identifier                                                  { Identifier $1 }
                 | Literal                                                     { $1 }
 
@@ -169,7 +158,8 @@ Loop            :: { AST }
                 : while Expression do Expression                              { While $2 $4 }
 
 Block           :: { AST }
-                : begin Expression Expression_Seq Semi_M end                  { Block $ $2 : $3 }
+                : begin Expressions ';' Expression end                        { Block $ $2 ++ [$4] }
+                | begin Expression end                                        { Block [$2] }
 
 Object_Field    :: { AST }
                 : Accessible '.' Field_Seq                                    { ObjectFieldAccess $1 $3 }
@@ -181,23 +171,13 @@ Field_Seq       :: { [AST] }
                 | identifier                                                  { [Identifier $1] }
 
 Param_List      :: { [String] }
-                : identifier Identifier_Seq Comma_M                           { $1 : $2 }
+                : Param_List ',' identifier                                   { $1 ++ [$3] }
+                | identifier                                                  { [$1] }
                 | {- empty -}                                                 { [] }
-
-Identifier_Seq  :: { [String] }
-                : ',' identifier Identifier_Seq                               { $2 : $3 }
-                | {- empty -}                                                 { [] }
-
-Comma_M         :: { () }
-                : ';'                                                         { () }
-                | {- empty -}                                                 { () }
 
 Arg_List        :: { [AST] }
-                : Expression Value_Seq Comma_M                                { $1 : $2 }
-                | {- empty -}                                                 { [] }
-
-Value_Seq       :: { [AST] }
-                : ',' Expression Value_Seq                                    { $2 : $3 }
+                : Arg_List ',' Expression                                     { $1 ++ [$3] }
+                | Expression                                                  { [$1] }
                 | {- empty -}                                                 { [] }
 
 Callable        :: { AST }
@@ -211,12 +191,8 @@ Array_Access    :: { AST }
                 : Accessible '[' Expression ']'                               { ArrayAccess $1 $3 }
                 | Object_Field '[' Expression ']'                             { ArrayAccess $1 $3 }
 
-Prnt_Args       :: { [AST] }
-                : ',' Arg_List                                                { $2 }
-                | {- empty -}                                                 { [] }
-
 Print           :: { AST }
-                : print '(' string Prnt_Args ')'                              { Print $3 $4 }
+                : print '(' string ',' Arg_List ')'                           { Print $3 $5 }
 
 
 Operation       :: { AST }
@@ -225,5 +201,5 @@ Operation       :: { AST }
 
 {
 parserError :: [Token.Token] -> a
-parserError _ = error "Parse error"
+parserError _ = error $ "Parse error"
 }
