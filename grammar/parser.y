@@ -92,6 +92,11 @@ Literal         :: { AST }
                 | true                                                        { Boolean True }
                 | unit                                                        { Unit }
                 | begin end                                                   { Unit }
+                | '(' Literal ')'                                             { $2 -- maybe delete }
+
+Identifier      :: { String }
+                : identifier                                                  { $1 }
+                | '(' Identifier ')'                                          { $2 }
 
 Expression      :: { AST }
                 : Function_Def                                                { $1 }
@@ -109,7 +114,7 @@ Expression      :: { AST }
                 | Application                                                 { $1 }
                 | Array_Def                                                   { $1 }
                 | Array_Access                                                { $1 }
-                | identifier                                                  { Identifier $1 }
+                | Identifier                                                  { Identifier $1 }
                 | Literal                                                     { $1 }
                 | '(' Expression ')'                                          { $2 }
 
@@ -175,8 +180,7 @@ AccIndAble      :: { AST }
                 | Array_Access                                                { $1 }
                 | '(' Array_Access ')'                                        { $2 }
 
-                | identifier                                                  { Identifier $1 }
-                | '(' identifier ')'                                          { Identifier $2 }
+                | Identifier                                                  { Identifier $1 }
 
                 | '(' AccIndAble ')'                                          { $2 -- this definitely helps }
 
@@ -193,8 +197,8 @@ Object_Field    :: { AST }
                 | this                                                        { This }
 
 Field_Seq       :: { [String] }
-                : identifier '.' Field_Seq                                    { $1 : $3 }
-                | identifier                                                  { [$1] }
+                : Identifier '.' Field_Seq                                    { $1 : $3 }
+                | Identifier                                                  { [$1] }
 
 Param_List      :: { [String] }
                 : Param_List ',' identifier                                   { $1 ++ [$3] }
@@ -207,7 +211,7 @@ Arg_List        :: { [AST] }
                 | {- empty -}                                                 { [] }
 
 Callable        :: { AST }
-                : identifier                                                  { Identifier $1 }
+                : Identifier                                                  { Identifier $1 }
                 | Object_Field                                                { $1 }
 
 Application     :: { AST }

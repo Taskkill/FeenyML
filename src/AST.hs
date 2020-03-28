@@ -17,7 +17,7 @@ data AST
   | Identifier String
   | If AST AST AST
   | While AST AST
-  | ObjectFieldAccess AST [AST]
+  | ObjectFieldAccess AST [String]
   | Method AST [AST] AST
   | ArrayDef AST AST
   | Application AST [AST]
