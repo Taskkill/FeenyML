@@ -102,7 +102,17 @@ Expression      :: { AST }
                 | Loop                                                        { $1 }
                 | Mutation                                                    { $1 }
                 | Print                                                       { $1 }
-                | Operation                                                   { $1 }
+
+                | Expression Operator Expression                              { Operation $2 $1 $3 }
+
+                | '(' Expression ')'                                          { $2 }
+                | Block                                                       { $1 }
+                | Application                                                 { $1 }
+                | Array_Def                                                   { $1 }
+                | Array_Access                                                { $1 }
+                | identifier                                                  { Identifier $1 }
+                | Literal                                                     { $1 }
+
 
 Function_Def    :: { AST }
                 : function identifier '(' Param_List ')' rarrow Expression    { FunctionDef $2 $4 $7 }
@@ -138,15 +148,6 @@ Mutation        :: { AST }
                 | Object_Field larrow Expression                              { FieldReAssignment $1 $3 }
                 | Array_Access larrow Expression                              { ArrayIndexReAssignment $1 $3 }
 
-Accessible      :: { AST }
-                : '(' Expression ')'                                          { $2 }
-                | Block                                                       { $1 }
-                | Application                                                 { $1 }
-                | Array_Def                                                   { $1 }
-                | Array_Access                                                { $1 }
-                | identifier                                                  { Identifier $1 }
-                | Literal                                                     { $1 }
-
 Conditional     :: { AST }
                 : if Expression then Expression Else_M                        { If $2 $4 $5 }
 
@@ -160,6 +161,28 @@ Loop            :: { AST }
 Block           :: { AST }
                 : begin Expressions ';' Expression end                        { Block $ $2 ++ [$4] }
                 | begin Expression end                                        { Block [$2] }
+
+AccIndAble      :: { AST }
+                : Object_Field                                                { $1 }
+                | '(' Object_Field ')'                                        { $2 }
+
+                | Block                                                       { $1 }
+                | '(' Block ')'                                               { $2 }
+
+                | Application                                                 { $1 }
+                | '(' Application ')'                                         { $2 }
+
+                | Array_Access                                                { $1 }
+                | '(' Array_Access ')'                                        { $2 }
+
+                | identifier                                                  { Identifier $1 }
+                | '(' identifier ')'                                          { Identifier $2 }
+
+Accessible      :: { AST }
+                : Object_Def                                                  { $1 }
+                | '(' Object_Def ')'                                          { $2 }
+
+                | AccIndAble                                                  { $1 }
 
 Object_Field    :: { AST }
                 : Accessible '.' Field_Seq                                    { ObjectFieldAccess $1 $3 }
@@ -187,17 +210,17 @@ Callable        :: { AST }
 Application     :: { AST }
                 : Callable '(' Arg_List ')'                                   { Application $1 $3 }
 
+Indexable       :: { AST }
+                : Array_Def                                                   { $1 }
+                | '(' Array_Def ')'                                           { $2 }
+
+                | AccIndAble                                                  { $1 }
+
 Array_Access    :: { AST }
-                : Accessible '[' Expression ']'                               { ArrayAccess $1 $3 }
-                | Object_Field '[' Expression ']'                             { ArrayAccess $1 $3 }
+                : Indexable '[' Expression ']'                                { ArrayAccess $1 $3 }
 
 Print           :: { AST }
                 : print '(' string ',' Arg_List ')'                           { Print $3 $5 }
-
-
-Operation       :: { AST }
-                : Operation Operator Operation                                { Operation $2 $1 $3 }
-                | Accessible                                                  { $1  -- Operable - without Array_Def}
 
 {
 parserError :: [Token.Token] -> a
