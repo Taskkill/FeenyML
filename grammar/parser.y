@@ -105,13 +105,13 @@ Expression      :: { AST }
 
                 | Expression Operator Expression                              { Operation $2 $1 $3 }
 
-                | '(' Expression ')'                                          { $2 }
                 | Block                                                       { $1 }
                 | Application                                                 { $1 }
                 | Array_Def                                                   { $1 }
                 | Array_Access                                                { $1 }
                 | identifier                                                  { Identifier $1 }
                 | Literal                                                     { $1 }
+                | '(' Expression ')'                                          { $2 }
 
 
 Function_Def    :: { AST }
@@ -178,20 +178,23 @@ AccIndAble      :: { AST }
                 | identifier                                                  { Identifier $1 }
                 | '(' identifier ')'                                          { Identifier $2 }
 
+                | '(' AccIndAble ')'                                          { $2 -- this definitely helps }
+
 Accessible      :: { AST }
                 : Object_Def                                                  { $1 }
                 | '(' Object_Def ')'                                          { $2 }
 
                 | AccIndAble                                                  { $1 }
+                | '(' Accessible ')'                                          { $2 -- not sure if this helps anything }
 
 Object_Field    :: { AST }
                 : Accessible '.' Field_Seq                                    { ObjectFieldAccess $1 $3 }
                 | this '.' Field_Seq                                          { ObjectFieldAccess This $3 }
                 | this                                                        { This }
 
-Field_Seq       :: { [AST] }
-                : identifier '.' Field_Seq                                    { (Identifier $1) : $3 }
-                | identifier                                                  { [Identifier $1] }
+Field_Seq       :: { [String] }
+                : identifier '.' Field_Seq                                    { $1 : $3 }
+                | identifier                                                  { [$1] }
 
 Param_List      :: { [String] }
                 : Param_List ',' identifier                                   { $1 ++ [$3] }
@@ -215,6 +218,7 @@ Indexable       :: { AST }
                 | '(' Array_Def ')'                                           { $2 }
 
                 | AccIndAble                                                  { $1 }
+                | '(' Indexable ')'                                           { $2 -- not sure if this helps anything }
 
 Array_Access    :: { AST }
                 : Indexable '[' Expression ']'                                { ArrayAccess $1 $3 }
