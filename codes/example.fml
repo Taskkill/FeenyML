@@ -14,7 +14,7 @@ let a = 23;
 
 function foo () -> a;
 
-foo()
+foo();
 
 a <- 42;
 

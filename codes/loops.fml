@@ -3,8 +3,8 @@ let cond = true;
 while cond
   do
   begin
-  val2 <- val2 + 23;
-  if val2 >= 10000 then cond <- false else begin end
+    val2 <- val2 + 23;
+    if val2 >= 10000 then cond <- false else unit
   end;
 val2;
 /*  10005 *\
