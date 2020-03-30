@@ -1,7 +1,10 @@
 let a = object
   begin
-    let local = 23;
-    function + (other) -> (this.local) + (other.local)
+    let local = object begin let val = 42; function f () -> this.val + 101 end;
+    function + (other) -> this.local + other.local;
+    function get () -> this.local
   end;
 
-a
+
+a.local.val;
+a.get().f()
