@@ -1,6 +1,6 @@
 module Interpreter where
 
-import AST (AST(..))
+import AST (AST(..), Operator(..))
 
 
 data Value
@@ -21,6 +21,17 @@ addLocal ctx = Local [] ctx
 dropLocal :: Ctx -> Ctx
 dropLocal (Global bs) = Global bs
 dropLocal (Local _ ctx) = ctx
+
+access :: [Binding] -> [String] -> Either String Value
+access bs (name : []) =
+  case getFromBindings name bs of
+    Nothing -> Left $ "Runtime Error: property " ++ name ++ " does not exist on "
+    Just v -> Right v
+access bs (name : names) =
+  case getFromBindings name bs of
+    Nothing -> Left $ "Runtime Error: property " ++ name ++ " does not exist on " -- please refactor to return Maybe
+    Just (Expression e) -> Left $ "Runtime Error: value does not have a property " ++ head names
+    Just (Object b a) -> access b names
 
 addToBindings :: Binding -> Ctx -> Ctx
 addToBindings (n, v) (Global bs) = Global $ (n, v) : bs
@@ -86,7 +97,33 @@ fromValue :: Value -> AST
 fromValue (Expression ast) = ast
 fromValue (Object _ ast) = ast
 
+opName :: Operator -> String
+opName = show
+
 objectCtx :: AST -> Ctx -> IO (Either String (Ctx, [Binding])) -- maybe free initCtx' from initCtx and call that -- but methods :(
+objectCtx (ObjectDef super definition) ctx = do
+  io <- interpretOne super ctx
+  case io of
+    Left msg -> return $ Left msg
+    Right (c, v) -> defToCtx definition c []
+      where
+        defToCtx :: [AST] -> Ctx -> [Binding] -> IO (Either String (Ctx, [Binding]))
+        defToCtx [] ctx bs = return $ Right (ctx, bs)
+        defToCtx ((Let name val) : asts) ctx bs = do
+          io <- interpretOne val ctx
+          case io of
+            Left msg -> return $ Left msg
+            Right (c, v) -> defToCtx asts c $ (name, v) : bs 
+        
+        defToCtx ((FunctionDef name params body) : asts) ctx bs =
+          defToCtx asts ctx $ (name, Expression $ FunctionDef name params body) : bs
+
+        defToCtx ((OperatorDef op params body) : asts) ctx bs =
+          defToCtx asts ctx $ (opName op, Expression $ OperatorDef op params body) : bs
+
+        defToCtx (exp : _) _ _ = return $ Left $ "Runtime Error: Object definition can not contain " ++ show exp ++ " ."
+  -- ignore super for now
+
 objectCtx (ArrayDef len init) ctx = do
   io <- interpretOne len ctx
   case io of
@@ -232,7 +269,6 @@ interpretOne ast ctx =
                 else interpretOne else' c
             _ -> return $ Left $ "Runtime Error: Condition " ++ show v ++ " is not a Bool value."
 
-    -- TODO: implement
     While cond do' -> do
       io <- interpretOne cond ctx
       case io of
@@ -245,15 +281,22 @@ interpretOne ast ctx =
                 Left msg -> return $ Left msg
                 Right (c, _) -> interpretOne (While cond do') c
             else return $ Right (c, Expression Unit)
-    -- evaluate the condition
-    -- take new context and evaluate? the body --- body does not necessarily get new context
-    -- again - evaluate condition with brand new context
-    -- evaluate the body again?
-    -- continue until condition is true
 
-    -- TODO: implement
-    ObjectFieldAccess _ _ _ -> undefined
-      -- evaluateObjectFieldAccess ast ctx
+    ObjectFieldAccess obj [] -> interpretOne obj ctx
+    ObjectFieldAccess obj (a:as) -> do
+      case obj of
+        This ->
+          case getValue a ctx of
+            Nothing -> return $ Left $ "Runtime Error: member " ++ a ++ " does not exist on the object."
+            Just val -> interpretOne (ObjectFieldAccess (fromValue val) as) ctx
+        _ -> do
+          io <- interpretOne obj ctx
+          case io of
+            Left msg -> return $ Left msg
+            Right (c, Object bs def) ->
+              case access bs (a:as) of
+                Left msg -> return $ Left msg
+                Right val -> return $ Right (ctx, val)
 
     ArrayDef _ _ -> do
       io <- objectCtx ast ctx
@@ -276,6 +319,30 @@ interpretOne ast ctx =
                 Right (ctx, val) ->
                   return $ Right (dropLocal ctx, val)
           -- ALSO - check if there is same number of Params as there is Args
+    
+    Application (ObjectFieldAccess obj accessors) args -> do
+      let method = last accessors
+      let accessors' = init accessors
+      io <-
+        case accessors' of
+          [] -> interpretOne obj ctx
+          _ -> interpretOne (ObjectFieldAccess obj accessors') ctx
+      case io of
+        Left msg -> return $ Left msg
+        Right (c, (Object bindings ast)) ->
+          case access bindings [method] of
+            Left msg -> return $ Left msg
+            Right (Expression (FunctionDef _ params body)) -> do
+              io <- bindParamsToArgs params args $ Local bindings ctx
+              case io of
+                Left msg -> return $ Left msg
+                Right c -> do
+                  e <- interpretOne body c
+                  case e of
+                    Left msg -> return $ Left msg
+                    Right (ctx, val) ->
+                      return $ Right (dropLocal $ dropLocal ctx, val)
+            _ -> return $ Left $ "Runtime Error: Application of object member " ++ method ++ " which is not a function."
 
     ArrayAccess accessible member -> do
       io <- interpretOne accessible ctx
