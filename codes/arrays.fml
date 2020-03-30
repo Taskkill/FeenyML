@@ -9,4 +9,8 @@ let arr = array(10, get());
 
 val <- 0;
 arr <- array(10, begin get() end);
-arr[2]
+arr[2];
+
+(((begin
+  array(10, 10)
+end)))[2]

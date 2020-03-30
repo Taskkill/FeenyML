@@ -1,11 +1,5 @@
 2 * 3 + 4;
 
-let a = object
-  begin
-    let local = 23;
-    function + (other) -> this.local + other.local
-  end;
-
-a.local
-
-
+((((begin
+  array(10, 10)
+end)))[2])
