@@ -41,4 +41,19 @@ data Operator
   | GreaterEqual
   | And
   | Or
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Operator where
+  show Multiply = "*"
+  show Plus = "+"
+  show Minus = "-"
+  show Divide = "/"
+  show Modulo = "%"
+  show UnEqual = "!="
+  show Equal = "=="
+  show Lesser = "<"
+  show Greater = ">"
+  show LesserEqual = "<="
+  show GreaterEqual = ">="
+  show And = "&"
+  show Or = "|"
