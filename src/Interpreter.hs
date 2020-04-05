@@ -18,7 +18,7 @@ type Binding = (String, Value)
 data Scope
   = Global [Binding]
   | Local [Binding] Scope
-  -- | Object [Binding] Scope
+  | Class [Binding] Scope
   deriving (Show)
 
 addLocal :: Scope -> Scope
@@ -26,7 +26,13 @@ addLocal ctx = Local [] ctx
 
 dropLocal :: Scope -> Scope
 dropLocal (Global bs) = Global bs
+dropLocal (Class _ ctx) = ctx
 dropLocal (Local _ ctx) = ctx
+
+getClassBindings :: Scope -> Maybe [Binding]
+getClassBindings (Global _) = Nothing
+getClassBindings (Class bs ctx) = Just bs
+getClassBindings (Local _ ctx) = getClassBindings ctx
 
 access :: [Binding] -> [String] -> Either String Value
 access bs (name : []) =
@@ -42,6 +48,7 @@ access bs (name : names) =
 addToBindings :: Binding -> Scope -> Scope
 addToBindings (n, v) (Global bs) = Global $ (n, v) : bs
 addToBindings (n , v) (Local bs ctx) = Local ((n, v) : bs) ctx
+-- never should occurr that addToBindings should be called on (Class _ _)
 
 getFromBindings :: String -> [Binding] -> Maybe Value
 getFromBindings _ [] = Nothing
@@ -55,6 +62,7 @@ getFromLast name (Global bs) =
   getFromBindings name bs
 getFromLast name (Local bs ctx) =
   getFromBindings name bs
+-- also can not be called on (Class _ _)
 
 updateBindings :: Binding -> [Binding] -> [Binding]
 updateBindings _ [] = [] -- should never happen
@@ -74,6 +82,7 @@ bindParamsToArgs params args ctx =
           (Left msg) -> return $ Left msg
           (Right (ctx, val)) -> bindParamsToArgs' ns vs ctx $ (n, val) : bs
 
+-- TODO: refactor a bit? There's a lot of duplicities.
 updateCtx :: Scope -> Binding -> Scope
 updateCtx ctx (n, v) =
   case ctx of
@@ -85,6 +94,10 @@ updateCtx ctx (n, v) =
       case getFromBindings n bs of
         Nothing -> Local bs $ updateCtx ctx' (n, v)
         Just v' -> Local (updateBindings (n, v) bs) ctx'
+    Class bs ctx' ->
+      case getFromBindings n bs of
+        Nothing -> Class bs $ updateCtx ctx' (n, v)
+        Just v' -> Class (updateBindings (n, v) bs) ctx'
 
 fill :: Int -> Scope -> AST -> IO (Either String (Scope, [Binding]))
 fill size ctx ast =
@@ -106,9 +119,6 @@ fromValue (Num i) = Number i
 fromValue (Bool b) = Boolean b
 fromValue (Object _ ast) = ast
 
-opName :: Operator -> String
-opName = show
-
 objectCtx :: AST -> Scope -> IO (Either String (Scope, [Binding])) -- maybe free initCtx' from initCtx and call that -- but methods :(
 objectCtx (ObjectDef super definition) ctx = do
   io <- interpretOne super ctx
@@ -128,7 +138,7 @@ objectCtx (ObjectDef super definition) ctx = do
           defToCtx asts ctx $ (name, Fn name params body) : bs
 
         defToCtx ((OperatorDef op params body) : asts) ctx bs =
-          defToCtx asts ctx $ (opName op, Fn (show op) params body) : bs
+          defToCtx asts ctx $ (show op, Fn (show op) params body) : bs
 
         defToCtx (exp : _) _ _ = return $ Left $ "Runtime Error: Object definition can not contain " ++ show exp ++ " ."
   -- ignore super for now TODO: interpret the super expression and take the bindings from it append them to current bindings
@@ -293,9 +303,19 @@ interpretOne ast ctx =
     ObjectFieldAccess obj (a:as) -> do
       case obj of
         This ->
-          case getValue a ctx of
-            Nothing -> return $ Left $ "Runtime Error: member " ++ a ++ " does not exist on the object."
-            Just val -> interpretOne (ObjectFieldAccess (fromValue val) as) ctx
+          -- Check that there's (Class bindings _) in the Scope chain
+          -- only get the value from the bindings
+          -- which means - line 309 is not correct - it will get nearest identifier's value
+          -- case getValue a ctx of
+          --   Nothing -> return $ Left $ "Runtime Error: member " ++ a ++ " does not exist on the object."
+          --   Just val -> interpretOne (ObjectFieldAccess (fromValue val) as) ctx
+          case getClassBindings ctx of
+            Nothing -> return $ Left "Runtime Error: This was used outside of the object scope."
+            Just (bindings) ->
+              case getFromBindings a bindings of
+                Nothing -> return $ Left $ "Runtime Error: member " ++ a ++ " is not a member of the current object."
+                Just v -> interpretOne (ObjectFieldAccess (fromValue v) as) ctx
+
         _ -> do
           io <- interpretOne obj ctx
           case io of
@@ -340,7 +360,7 @@ interpretOne ast ctx =
           case access bindings [method] of
             Left msg -> return $ Left msg
             Right (Fn _ params body) -> do
-              io <- bindParamsToArgs params args $ Local bindings ctx
+              io <- bindParamsToArgs params args $ Class bindings ctx --- TODO: Class
               case io of
                 Left msg -> return $ Left msg
                 Right c -> do
@@ -348,7 +368,7 @@ interpretOne ast ctx =
                   case e of
                     Left msg -> return $ Left msg
                     Right (ctx, val) ->
-                      return $ Right (dropLocal $ dropLocal ctx, val)
+                      return $ Right (dropLocal $ dropLocal ctx, val) -- first drop the local function context - then Object context
             _ -> return $ Left $ "Runtime Error: Application of object member " ++ method ++ " which is not a function."
 
     ArrayAccess accessible member -> do
