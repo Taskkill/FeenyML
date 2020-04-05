@@ -4,7 +4,6 @@ import AST (AST(..), Operator(..))
 
 
 data Value
-  -- = Expression AST
   = Object [Binding] AST -- [member] definition
   | Fn String [String] AST -- name [parameter] definition
   | Null
@@ -303,12 +302,6 @@ interpretOne ast ctx =
     ObjectFieldAccess obj (a:as) -> do
       case obj of
         This ->
-          -- Check that there's (Class bindings _) in the Scope chain
-          -- only get the value from the bindings
-          -- which means - line 309 is not correct - it will get nearest identifier's value
-          -- case getValue a ctx of
-          --   Nothing -> return $ Left $ "Runtime Error: member " ++ a ++ " does not exist on the object."
-          --   Just val -> interpretOne (ObjectFieldAccess (fromValue val) as) ctx
           case getClassBindings ctx of
             Nothing -> return $ Left "Runtime Error: This was used outside of the object scope."
             Just (bindings) ->
@@ -360,7 +353,7 @@ interpretOne ast ctx =
           case access bindings [method] of
             Left msg -> return $ Left msg
             Right (Fn _ params body) -> do
-              io <- bindParamsToArgs params args $ Class bindings ctx --- TODO: Class
+              io <- bindParamsToArgs params args $ Class bindings ctx
               case io of
                 Left msg -> return $ Left msg
                 Right c -> do
