@@ -4,21 +4,27 @@ import AST (AST(..), Operator(..))
 
 
 data Value
-  = Expression AST
-  | Object [Binding] AST
+  -- = Expression AST
+  = Object [Binding] AST -- [member] definition
+  | Fn String [String] AST -- name [parameter] definition
+  | Null
+  | Num Int
+  | Bool Bool
+  | Error String
   deriving (Show)
 
 type Binding = (String, Value)
 
-data Ctx
+data Scope
   = Global [Binding]
-  | Local [Binding] Ctx
+  | Local [Binding] Scope
+  -- | Object [Binding] Scope
   deriving (Show)
 
-addLocal :: Ctx -> Ctx
+addLocal :: Scope -> Scope
 addLocal ctx = Local [] ctx
 
-dropLocal :: Ctx -> Ctx
+dropLocal :: Scope -> Scope
 dropLocal (Global bs) = Global bs
 dropLocal (Local _ ctx) = ctx
 
@@ -29,11 +35,11 @@ access bs (name : []) =
     Just v -> Right v
 access bs (name : names) =
   case getFromBindings name bs of
-    Nothing -> Left $ "Runtime Error: property " ++ name ++ " does not exist on " -- please refactor to return Maybe
-    Just (Expression e) -> Left $ "Runtime Error: value does not have a property " ++ head names
     Just (Object b a) -> access b names
+    Nothing -> Left $ "Runtime Error: property " ++ name ++ " does not exist on " -- please refactor to return Maybe
+    Just v -> Left $ "Runtime Error: value" ++ show v ++ "does not have a property " ++ head names
 
-addToBindings :: Binding -> Ctx -> Ctx
+addToBindings :: Binding -> Scope -> Scope
 addToBindings (n, v) (Global bs) = Global $ (n, v) : bs
 addToBindings (n , v) (Local bs ctx) = Local ((n, v) : bs) ctx
 
@@ -44,7 +50,7 @@ getFromBindings name ((n, v) : bs) =
     then Just v
     else getFromBindings name bs
 
-getFromLast :: String -> Ctx -> Maybe Value
+getFromLast :: String -> Scope -> Maybe Value
 getFromLast name (Global bs) =
   getFromBindings name bs
 getFromLast name (Local bs ctx) =
@@ -57,7 +63,7 @@ updateBindings (n, v) ((n', v') : bs) =
     then (n, v) : bs
     else (n', v') : updateBindings (n, v) bs
 
-bindParamsToArgs :: [String] -> [AST] -> Ctx -> IO (Either String Ctx)
+bindParamsToArgs :: [String] -> [AST] -> Scope -> IO (Either String Scope)
 bindParamsToArgs params args ctx =
   bindParamsToArgs' params args ctx []
     where
@@ -68,7 +74,7 @@ bindParamsToArgs params args ctx =
           (Left msg) -> return $ Left msg
           (Right (ctx, val)) -> bindParamsToArgs' ns vs ctx $ (n, val) : bs
 
-updateCtx :: Ctx -> Binding -> Ctx
+updateCtx :: Scope -> Binding -> Scope
 updateCtx ctx (n, v) =
   case ctx of
     Global bs ->
@@ -80,11 +86,11 @@ updateCtx ctx (n, v) =
         Nothing -> Local bs $ updateCtx ctx' (n, v)
         Just v' -> Local (updateBindings (n, v) bs) ctx'
 
-fill :: Int -> Ctx -> AST -> IO (Either String (Ctx, [Binding]))
+fill :: Int -> Scope -> AST -> IO (Either String (Scope, [Binding]))
 fill size ctx ast =
   fill' size 0 ast ctx []
     where
-      fill' :: Int -> Int -> AST -> Ctx -> [Binding] -> IO (Either String (Ctx, [Binding]))
+      fill' :: Int -> Int -> AST -> Scope -> [Binding] -> IO (Either String (Scope, [Binding]))
       fill' 0 _ _ ctx bs = return $ Right (ctx, bs)
       fill' size index ast ctx bs = do
         io <- interpretOne ast ctx
@@ -94,20 +100,23 @@ fill size ctx ast =
             fill' (size  - 1) (index + 1) ast c $ bs ++ [(show index, v)]
 
 fromValue :: Value -> AST
-fromValue (Expression ast) = ast
+fromValue (Fn name params def) = FunctionDef name params def
+fromValue Null = Unit
+fromValue (Num i) = Number i
+fromValue (Bool b) = Boolean b
 fromValue (Object _ ast) = ast
 
 opName :: Operator -> String
 opName = show
 
-objectCtx :: AST -> Ctx -> IO (Either String (Ctx, [Binding])) -- maybe free initCtx' from initCtx and call that -- but methods :(
+objectCtx :: AST -> Scope -> IO (Either String (Scope, [Binding])) -- maybe free initCtx' from initCtx and call that -- but methods :(
 objectCtx (ObjectDef super definition) ctx = do
   io <- interpretOne super ctx
   case io of
     Left msg -> return $ Left msg
     Right (c, v) -> defToCtx definition c []
       where
-        defToCtx :: [AST] -> Ctx -> [Binding] -> IO (Either String (Ctx, [Binding]))
+        defToCtx :: [AST] -> Scope -> [Binding] -> IO (Either String (Scope, [Binding]))
         defToCtx [] ctx bs = return $ Right (ctx, bs)
         defToCtx ((Let name val) : asts) ctx bs = do
           io <- interpretOne val ctx
@@ -116,19 +125,19 @@ objectCtx (ObjectDef super definition) ctx = do
             Right (c, v) -> defToCtx asts c $ (name, v) : bs 
         
         defToCtx ((FunctionDef name params body) : asts) ctx bs =
-          defToCtx asts ctx $ (name, Expression $ FunctionDef name params body) : bs
+          defToCtx asts ctx $ (name, Fn name params body) : bs
 
         defToCtx ((OperatorDef op params body) : asts) ctx bs =
-          defToCtx asts ctx $ (opName op, Expression $ OperatorDef op params body) : bs
+          defToCtx asts ctx $ (opName op, Fn (show op) params body) : bs
 
         defToCtx (exp : _) _ _ = return $ Left $ "Runtime Error: Object definition can not contain " ++ show exp ++ " ."
-  -- ignore super for now
+  -- ignore super for now TODO: interpret the super expression and take the bindings from it append them to current bindings
 
 objectCtx (ArrayDef len init) ctx = do
   io <- interpretOne len ctx
   case io of
     Left msg -> return $ Left msg
-    Right (c, Expression (Number i)) ->
+    Right (c, Num i) ->
       case init of
         Application _ _ -> do
           io <- interpretOne init c
@@ -136,23 +145,21 @@ objectCtx (ArrayDef len init) ctx = do
             Left msg -> return $ Left msg
             Right (c, val) -> fill i c $ fromValue val
         _ -> fill i c init
--- smyslem je projit Object a ulozit do Bindings vsechny lokalni variables a metody a operatory
--- ObjectDef
 
-initCtx :: Ctx -> [AST] -> Either String Ctx
+initCtx :: Scope -> [AST] -> Either String Scope
 initCtx ctx [] = Right ctx
 initCtx ctx (ast : asts) =
   case ast of
-    FunctionDef name _ _ ->
+    FunctionDef name ps def ->
       case getValue name ctx of
         Nothing ->
-          case initCtx (addToBindings (name, Expression ast) ctx) asts of
+          case initCtx (addToBindings (name, Fn name ps def) ctx) asts of
             Left msg -> Left msg
             Right ctx -> Right ctx
         Just _ -> Left $ "Runtime Error: You can not redefine already defined function " ++ name ++ "."
     _ -> initCtx ctx asts
 
-getValue :: String -> Ctx -> Maybe Value
+getValue :: String -> Scope -> Maybe Value
 getValue name ctx =
   case ctx of
     (Global bs) ->
@@ -169,7 +176,7 @@ evaluate asts = do
     Left msg -> do return $ Left msg
     Right (c, value) -> return $ Right value
 
-interpret :: [AST] -> Ctx -> IO (Either String (Ctx, Value))
+interpret :: [AST] -> Scope -> IO (Either String (Scope, Value))
 interpret asts ctx = do
   let r = initCtx ctx asts
   (case r of
@@ -179,7 +186,7 @@ interpret asts ctx = do
       ps <- interpret' asts ctx
       return $ last ps)
   where
-    interpret' :: [AST] -> Ctx -> IO [Either String (Ctx, Value)]
+    interpret' :: [AST] -> Scope -> IO [Either String (Scope, Value)]
     interpret' [] _ = return []
     interpret' (ast : asts) ctx = do
       r <- interpretOne ast ctx
@@ -189,15 +196,15 @@ interpret asts ctx = do
           tail <- interpret' asts ctx'
           return $ Right (ctx', head) : tail)
 
-interpretOne :: AST -> Ctx -> IO (Either String (Ctx, Value))
+interpretOne :: AST -> Scope -> IO (Either String (Scope, Value))
 interpretOne ast ctx =
   case ast of
     Number i ->
-      return $ Right (ctx, Expression ast)
+      return $ Right (ctx, Num i)
     Boolean b ->
-      return $ Right (ctx, Expression ast)
+      return $ Right (ctx, Bool b)
     Unit ->
-      return $ Right (ctx, Expression ast)
+      return $ Right (ctx, Null)
     
     Block exprs -> do
       e <- interpret exprs $ addLocal ctx
@@ -209,7 +216,7 @@ interpretOne ast ctx =
     -- Functions can be declared in any scope-level
     -- They are always hoisted
     FunctionDef _ _ _ ->
-      return $ Right (ctx, Expression Unit)
+      return $ Right (ctx, Null)
 
     Let n v ->
       case getFromLast n ctx of
@@ -220,7 +227,7 @@ interpretOne ast ctx =
           case r of
             Left msg -> return $ Left msg
             Right (ctx, value) ->
-              return $ Right (addToBindings (n, value) ctx, Expression Unit)
+              return $ Right (addToBindings (n, value) ctx, Null)
     
     ObjectDef _ _ -> do
       io <- (objectCtx ast ctx)
@@ -237,7 +244,7 @@ interpretOne ast ctx =
           case r of
             Left msg -> return $ Left msg
             Right (ctx, value) ->
-              return $ Right (updateCtx ctx (name, value), Expression Unit)
+              return $ Right (updateCtx ctx (name, value), Null)
 
     -- TODO: implement
     FieldReAssignment accessor value ->
@@ -263,7 +270,7 @@ interpretOne ast ctx =
         Left msg -> return $ Left msg
         Right (c, v) ->
           case v of
-            Expression (Boolean b) ->
+            Bool b ->
               if b
                 then interpretOne then' c
                 else interpretOne else' c
@@ -273,14 +280,14 @@ interpretOne ast ctx =
       io <- interpretOne cond ctx
       case io of
         Left msg -> return $ Left msg
-        Right (c, (Expression (Boolean b))) ->
+        Right (c, (Bool b)) ->
           if b
             then do
               io <- interpretOne do' c
               case io of
                 Left msg -> return $ Left msg
                 Right (c, _) -> interpretOne (While cond do') c
-            else return $ Right (c, Expression Unit)
+            else return $ Right (c, Null)
 
     ObjectFieldAccess obj [] -> interpretOne obj ctx
     ObjectFieldAccess obj (a:as) -> do
@@ -308,7 +315,7 @@ interpretOne ast ctx =
       case getValue fname ctx of
         Nothing -> do
           return $ Left $ "Runtime Error: Cannot apply undefined function " ++ fname ++ " to it's arguments " ++ show args ++ "."
-        Just (Expression (FunctionDef _ params body)) -> do
+        Just (Fn _ params body) -> do
           io <- bindParamsToArgs params args ctx
           case io of
             Left msg -> return $ Left msg
@@ -332,7 +339,7 @@ interpretOne ast ctx =
         Right (c, (Object bindings ast)) ->
           case access bindings [method] of
             Left msg -> return $ Left msg
-            Right (Expression (FunctionDef _ params body)) -> do
+            Right (Fn _ params body) -> do
               io <- bindParamsToArgs params args $ Local bindings ctx
               case io of
                 Left msg -> return $ Left msg
@@ -350,20 +357,20 @@ interpretOne ast ctx =
         Left msg -> return $ Left msg
         Right (c, v) ->
           case v of
-            Expression _ -> return $ Left "Runtime Error: operator [] used on non Object type."
             Object bs ast -> do
               io <- interpretOne member c
               case io of
                 Left msg -> return $ Left msg
-                Right (c, Expression (Number i)) ->
+                Right (c, Num i) ->
                   case getFromBindings (show i) bs of
-                    Nothing -> return $ Right (c, Expression Unit)
+                    Nothing -> return $ Right (c, Null)
                     Just val -> return $ Right (c, val)
+            _ -> return $ Left "Runtime Error: operator [] used on non Object type."
 
     -- TODO: implement
     Print format args -> do
       print $ show format ++ show args
-      return $ Right (ctx, Expression Unit)
+      return $ Right (ctx, Null)
 
     -- TODO: implement the rest
     -- TODO: FIX: left side may mutate something which right side accesses
@@ -371,40 +378,40 @@ interpretOne ast ctx =
       l <- interpretOne left ctx
       r <- interpretOne right ctx
       case (op, l, r) of
-        (Plus, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Number $ a + b)
-        (Minus, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Number $ a - b)
-        (Multiply, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Number $ a * b)
-        (Divide, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Number $ a `div` b) -- check if not division by zero
-        (Modulo, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Number $ a `mod` b)
+        (Plus, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Num $a + b)
+        (Minus, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Num $a - b)
+        (Multiply, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Num $a * b)
+        (Divide, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Num $a `div` b) -- check if not division by zero
+        (Modulo, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Num $a `mod` b)
         
-        (Equal, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a == b)
-        (Equal, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a == b)
+        (Equal, (Right (_, Bool a)), (Right (_, Bool b))) ->
+          return $ Right (ctx,  Bool $a == b)
+        (Equal, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Bool $a == b)
         
-        (UnEqual, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ not $ a == b)
-        (UnEqual, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ not $ a == b)
+        (UnEqual, (Right (_, Bool a)), (Right (_, Bool b))) ->
+          return $ Right (ctx,  Bool $not $ a == b)
+        (UnEqual, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Bool $not $ a == b)
         
-        (Lesser, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a < b)
-        (Greater, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a > b)
-        (LesserEqual, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a <= b)
-        (GreaterEqual, (Right (_, Expression (Number a))), (Right (_, Expression (Number b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a >= b)
+        (Lesser, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Bool $a < b)
+        (Greater, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Bool $a > b)
+        (LesserEqual, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Bool $a <= b)
+        (GreaterEqual, (Right (_, Num a)), (Right (_, Num b))) ->
+          return $ Right (ctx,  Bool $a >= b)
         
-        (And, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a && b)
-        (Or, (Right (_, Expression (Boolean a))), (Right (_, Expression (Boolean b)))) ->
-          return $ Right (ctx, Expression $ Boolean $ a || b)
+        (And, (Right (_, Bool a)), (Right (_, Bool b))) ->
+          return $ Right (ctx,  Bool $a && b)
+        (Or, (Right (_, Bool a)), (Right (_, Bool b))) ->
+          return $ Right (ctx,  Bool $a || b)
         _ -> do
           print (op, r)
           return $ Left "error"
