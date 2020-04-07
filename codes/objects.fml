@@ -13,4 +13,12 @@ let o = object
 
 
 a.local.val;
-a.get().f()
+a.get().f();
+
+let c = object
+  begin
+    let foo = 23;
+    function fn () -> begin let foo = 42; this.foo end
+  end;
+
+c.fn()
