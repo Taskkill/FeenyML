@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f59f6d9ea91cdf85b628b34e7d9a39ce171bd31ec5bb3d1b4ddedaef8d82a9fd
+-- hash: f60840fa6671ec7423d6d2537394ea2d4c74a015cd17159df98f06dcafb14749
 
 name:           feenyml
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       Parser
       Scanner
       Tokens
+      VM.Machine
   other-modules:
       Paths_feenyml
   hs-source-dirs:
@@ -40,6 +41,7 @@ library
   build-depends:
       array
     , base >=4.7 && <5
+    , mtl
   default-language: Haskell2010
 
 executable feenyml-exe
@@ -52,6 +54,7 @@ executable feenyml-exe
   build-depends:
       base >=4.7 && <5
     , feenyml
+    , mtl
   default-language: Haskell2010
 
 test-suite feenyml-test
@@ -65,4 +68,5 @@ test-suite feenyml-test
   build-depends:
       base >=4.7 && <5
     , feenyml
+    , mtl
   default-language: Haskell2010
