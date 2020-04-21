@@ -18,6 +18,9 @@ topSafe :: Stack a -> Maybe a
 topSafe Empty = Nothing
 topSafe (NonEmpty a _) = Just a
 
+popN :: Integral a => a -> Stack b -> ([b], Stack b)
+popN = undefined
+
 -- Pop element from top of stack
 -- If stack is empty error with message "Empty stack" will be raised
 pop :: Stack a -> Stack a

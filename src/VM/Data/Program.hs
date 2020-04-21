@@ -1,7 +1,12 @@
 module VM.Data.Program where
 
-data Program a
-  = { left :: [a]
-    , elem :: a
-    , right :: [a]
+import VM.Data.Instruction (Instruction(..))
+import VM.Data.Frame
+
+type Inst = (Instruction, InstructionAddress)
+
+data Program
+  = P { left :: [Inst]
+    , elem :: Inst
+    , right :: [Inst]
     }
