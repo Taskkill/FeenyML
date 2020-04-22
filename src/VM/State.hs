@@ -91,8 +91,16 @@ getFromLocal index (Global Frame { arguments = args, variables = vars }) =
 getFromLocal index (Local Frame { arguments = args, variables = vars } _) =
   (args ++ vars) ! index
 
+replaceNth :: Int -> [a] -> a -> [a]
+replaceNth i lst e =
+  let (first, (x : xs)) = splitAt i
+  in first ++ $ e : xs
+
 updateLocal :: Int -> Operand -> Contex -> Context
-updateLocal = undefined
+updateLocal index value f@Frame { arguments = args, variables = vars }
+  | index < args.length = f { arguments = replaceNth index args }
+  | index == args.length = f { variables = value : tail vars }
+  | index > args.length = f { variables = replaceNth (index - args.length) vars }
 
 getFromGlobal :: String -> GlobalVarMap -> Operand
 getFromGlobal name globals = globals ! name
