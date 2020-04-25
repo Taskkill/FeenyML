@@ -19,7 +19,13 @@ topSafe Empty = Nothing
 topSafe (NonEmpty a _) = Just a
 
 popN :: Integral a => a -> Stack b -> ([b], Stack b)
-popN = undefined
+popN 0 stack = ([], stack)
+popN n stack =
+  let
+    c = top stack 
+    (l, s) = popN (n - 1) $ pop stack
+  in
+    (c : l, s)
 
 -- Pop element from top of stack
 -- If stack is empty error with message "Empty stack" will be raised

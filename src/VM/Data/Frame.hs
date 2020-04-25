@@ -1,11 +1,11 @@
 module VM.Data.Frame where
 
-import VM.State (Memory)
+-- import VM.Data.Memory (Memory)
+import VM.Data.Value (Operand(..))
+import VM.Data.Program
 
-type InstructionAddress = Int
-
-data Frame =
-  Frame { arguments :: [(String, Operand)]
-        , variables :: [(String, Operand)]
-        , caller    :: InstructionAddress
-        , parent    :: Frame }
+data Frame = Frame
+  { arguments :: [(String, Operand)]
+  , variables :: [(String, Operand)]
+  , caller    :: InstructionAddress
+  , parent    :: Frame }
