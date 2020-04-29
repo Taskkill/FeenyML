@@ -1,4 +1,4 @@
-module VM.Stack where
+module VM.Lib.Stack where
 
 -- https://en.wikipedia.org/wiki/Stack_(abstract_data_type)
 data Stack a = Empty | NonEmpty a (Stack a)

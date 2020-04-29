@@ -1,15 +1,25 @@
-module VM.Data.Program where
+module VM.Program where
 
-import VM.Data.Instruction (Instruction(..))
+import VM.Program.Instruction (Instruction(..))
+import VM.Program.Value (Index)
 
 type Inst = (Instruction, InstructionAddress)
 
-type InstructionAddress = Int
+type InstructionAddress = Index
+
+type Globals = [Int]
 
 data Program = P
-  { left  :: [Inst]
+  { left    :: [Inst]
   , el      :: Inst
   , right   :: [Inst] }
+
+instructions2Program :: [Instruction] -> Program
+instructions2Program (i : is) = P { left = [], el = (i, 0), right = toInsts is 1 }
+  where
+    toInsts :: [Instruction] -> Int -> [Inst]
+    toInsts [] _ = []
+    toInsts (i : is) n = (i, n) : (toInsts is $ n + 1)
 
 moveRight :: Program -> Program
 moveRight P { left = l, el = e, right = r : rs } =

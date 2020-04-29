@@ -5,6 +5,8 @@ import Scanner (scan)
 import Parser (parse)
 import Interpreter (evaluate)
 
+import VM.Interpreter
+
 -- import Lib
 
 main :: IO ()

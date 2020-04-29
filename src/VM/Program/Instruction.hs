@@ -1,4 +1,4 @@
-module VM.Data.Instruction where
+module VM.Program.Instruction where
 
 
 data Instruction
