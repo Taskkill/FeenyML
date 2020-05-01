@@ -21,40 +21,61 @@ import qualified VM.Lib.Stack as Stack
 
 
 runProgram :: Program -> Output
-runProgram program =
-  runProgram' program (CS { c = initMemory, p = subProgram program, s = empty, o = Seq.empty, cp = getConstPool program })
+runProgram program = output
+  where
+    CS { o = output } =
+      runProgram' program
+      (CS
+        { c = []
+        , g = Map.empty
+        , p = subProgram program
+        , s = Stack.empty
+        , o = Seq.empty
+        , cp = getConstPool program
+        , ia = 0
+        , m = initMemory
+        , gs = initGlobals program })
 
 runProgram' :: Program -> State -> State
-runProgram' p@P { left = l, elem = EOP, right = [] } s = s
+runProgram' p@P { left = l, el = (EOP, _), right = [] } s = s
 
-runProgram' p@P { left = l, elem = e, right = r } state =
-  runProgram (setToInstruction ia p) cs
+runProgram' p@P { left = l, el = (inst, instAddr), right = r } state =
+  runProgram' (setToInstruction ia p) cs
     where
-      cs@CS { ia = ia } = runInstruction e state
+      cs@CS { ia = ia } = runInstruction inst state
 
 --
 --
+
+getFn :: String -> ConstPool -> Value
+getFn = undefined
 
 operand2Value :: Runtime.Value -> GlobalVarMap -> Value
 operand2Value op gl = undefined
 
-operand2RValue :: Runtime.Value -> ConstPool -> Runtime.Value
-operand2RValue Null _ = RNull
+operand2RValue :: Runtime.Value -> Memory -> Runtime.Value
+operand2RValue (Runtime.Pointer addr) (_, mem) = mem ! addr
+-- operand2RValue val cp = const.id $ val cp
+operand2RValue Runtime.Null _ = Runtime.Null
 operand2RValue (Runtime.Int i) _ = Runtime.Int i
-operand2RValue (Runtime.Pointer addr) cp = cp ! addr 
 
 slot2String :: Value -> ConstPool -> String
-slot2String (Slot i) cp = cp ! i
+slot2String (Slot i) cp = str
+  where
+    String str = cp ! i
 
 valueToOperand_P :: Value -> Runtime.Value
-valueToOperand_P Null = Null
-valueToOperand_P Int i = Int i
+valueToOperand_P Null = Runtime.Null
+valueToOperand_P (Int i) = Runtime.Int i
 -- this function is partial
+
+variableCount :: Value -> Int
+variableCount = undefined
 
 getConstPool :: Program -> ConstPool
 getConstPool = undefined
 
-initGlobals :: Globals -> Program -> Program
+initGlobals :: Program -> Globals
 initGlobals = undefined
 -- TODO: iterate over Globals - Index by Index and pull each Value from Program.ConstPool by Index
 -- if the value is Function/Method -> get its indexName -> get the Name from the Program.ConstPool
@@ -84,28 +105,28 @@ getObjVar name ob = undefined
 
 getFromLocal :: Int -> Context -> Runtime.Value
 getFromLocal index (Frame { arguments = args, variables = vars } : fs) =
-  (args ++ vars) ! index
+  (args ++ vars) !! index
 -- getFromLocal index (Global Frame { arguments = args, variables = vars }) =
 --   (args ++ vars) ! index
 -- getFromLocal index (Local Frame { arguments = args, variables = vars } _) =
 --   (args ++ vars) ! index
 
-replaceNth :: Int -> [a] -> a -> [a]
-replaceNth i lst e =
-  let (first, (x : xs)) = splitAt i
+replaceNth :: Int -> a -> [a] -> [a]
+replaceNth i e lst =
+  let (first, (x : xs)) = splitAt i lst
   in first ++ e : xs
 
 updateLocal :: Int -> Runtime.Value -> Context -> Context
-updateLocal index value f@Frame { arguments = args, variables = vars }
-  | index < args.length = f { arguments = replaceNth index args }
-  | index == args.length = f { variables = value : tail vars }
-  | index > args.length = f { variables = replaceNth (index - args.length) vars }
+updateLocal index value (f@Frame { arguments = args, variables = vars } : fs)
+  | index < length args = f { arguments = replaceNth index value args } : fs
+  | index == length args = f { variables = value : tail vars } : fs
+  | index > length args = f { variables = replaceNth (index - length args) value vars } : fs
 
 getFromGlobal :: String -> GlobalVarMap -> Runtime.Value
 getFromGlobal name globals = globals ! name
 
 updateGlobal :: String -> Runtime.Value -> GlobalVarMap -> GlobalVarMap
-updateGlobal name value globals = Map.insert name value
+updateGlobal name value globals = Map.insert name value globals
 
 --
 --
@@ -123,16 +144,16 @@ runInstruction Array cs@(CS { s = s, ia = ia, m = (si, mem) }) =
       s'' = Stack.pop s
       len = Stack.top s''
       s' = Stack.pop s''
-      arr = Array { vals = repeat initVal }
-      ptr = s
-      m' = (si + 1, Map.insert s arr)
+      arr = Runtime.Array { vals = repeat initVal }
+      m' = (si + 1, Map.insert si arr mem)
+      ptr = Runtime.Pointer si
 
 runInstruction (Print format count) cs@(CS { s = s, o = o, ia = ia }) =
   -- pop count arguments from the Stack, modify the Output and push Null to the Stack
   cs { s = s', o = o', ia = ia + 1 }
     where
       (vals, s'') = Stack.popN count s
-      s' = Stack.push Null s''
+      s' = Stack.push Runtime.Null s''
       o' = o |> (formatOut format vals)
 
 runInstruction (SetLocal index) cs@(CS { c = c, s = s, ia = ia }) =
@@ -145,7 +166,7 @@ runInstruction (SetLocal index) cs@(CS { c = c, s = s, ia = ia }) =
 
 runInstruction (GetLocal index) cs@(CS { c = c, s = s, ia = ia }) =
   -- push the index'th value from local frame to the top of the Stack
-  cs { c = c', s = s', ia = ia + 1 }
+  cs { s = s', ia = ia + 1 }
     where
       v = getFromLocal index c
       s' = Stack.push v s
@@ -154,7 +175,7 @@ runInstruction (SetGlobal index) cs@(CS { g = g, s = s, cp = cp, ia = ia }) =
   -- set the global variable named as index'th String slot to the top of the Stack
   cs { g = g', s = s', ia = ia + 1 }
     where
-      name = cp ! index
+      name = slot2String (cp ! index) cp
       v = Stack.top s
       s' = Stack.pop s
       g' = updateGlobal name v g
@@ -163,7 +184,7 @@ runInstruction (GetGlobal index) cs@(CS { g = g, s = s, cp = cp, ia = ia }) =
   -- get global variable named as index'th String slot and push it's value to the top of the Stack
   cs { s = s', ia = ia + 1 }
     where
-      name = cp ! index
+      name = slot2String (cp ! index) cp
       v = getFromGlobal name g
       s' = Stack.push v s
 
@@ -177,13 +198,13 @@ runInstruction (Object index) cs@(CS { c = c, p = p, s = s, o = o, cp = cp, ia =
   -- get Object's class at index, then check how many variables it has, pop so many values from the Stack and pop one more - superclass, then push the Object on the Stack
   cs { s = s', ia = ia + 1, m = m' }
     where
-      cl = cp ! i
+      cl = cp ! index
       count = variableCount cl
       (vals, s''') = Stack.popN count s
       super = Stack.top s'''
       s'' = Stack.pop s'''
       o = Runtime.Object { vars = vals, super = super, cl = cp ! index }
-      m' = (si + 1, Map.insert s o)
+      m' = (si + 1, Map.insert si o mem)
       s' = Stack.push (Runtime.Pointer si) s
 
 runInstruction (GetSlot index) cs@(CS { s = s, cp = cp, ia = ia, m = (_, mem) }) =
@@ -245,13 +266,13 @@ runInstruction (Goto index) cs@(CS { p = p, cp = cp, ia = ia }) =
 runInstruction (Return) cs@(CS { c = (Frame { caller = r } : fs), ia = ia }) =
   cs { c = fs, ia = r }
 
-runInstruction (Call index count) cs@(CS { c = c, g = g, s = s, cp = cp, ia = ia }) =
+runInstruction (Call index count) cs@(CS { c = c, g = g, s = s, cp = cp, ia = ia, m = m }) =
   state { ia = ia + 1 }
     where
       name = slot2String (cp ! index) cp
       (vals, s') = Stack.popN count s
-      args = map (\ o -> operand2RValue o cp) vals
-      Function { argsCnt = argC, varsCnt = varC, body = b } = g ! name
+      args = map (\ o -> operand2RValue o m) vals
+      Function { argsCnt = argC, varsCnt = varC, body = b } = getFn name cp --       g ! name
       initVals = replicate varC Runtime.Null
       bodyProg = instructions2Program b
       state =

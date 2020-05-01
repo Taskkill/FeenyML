@@ -14,6 +14,8 @@ data Program = P
   , el      :: Inst
   , right   :: [Inst] }
 
+-- TODO: add ConstantPool, GlobalSlots, MainFunction
+
 instructions2Program :: [Instruction] -> Program
 instructions2Program (i : is) = P { left = [], el = (i, 0), right = toInsts is 1 }
   where

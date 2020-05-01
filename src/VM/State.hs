@@ -13,7 +13,7 @@ import VM.Program.Instruction
 
 type Context = [Frame]
 
-type GlobalVarMap = Map.Map String Value
+type GlobalVarMap = Map.Map String Runtime.Value
 
 type SubprogramDir = Map.Map String InstructionAddress
 
@@ -31,4 +31,5 @@ data State
        , o      :: Output
        , cp     :: ConstPool
        , ia     :: InstructionAddress
-       , m      :: Memory }
+       , m      :: Memory
+       , gs     :: Globals }
