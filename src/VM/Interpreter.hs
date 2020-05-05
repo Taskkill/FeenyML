@@ -12,7 +12,7 @@ import qualified VM.Value as Runtime
 import VM.Program.Instruction (Instruction(..))
 -- import qualified VM.Program.Instruction as Inst
 
-import VM.State (State(..), Context, GlobalVarMap, SubprogramDir, OperandStack, Output, ConstPool)
+import VM.State (State(..), Context, GlobalVarMap, SubprogramDir, OperandStack, Output, ConstPool, FunctionList)
 import VM.Program
 import VM.Memory
 import VM.Frame
@@ -34,7 +34,8 @@ runProgram program = output
         , cp = getConstPool program
         , ia = 0
         , m = initMemory
-        , gs = initGlobals program })
+        , gs = initGlobals program
+        , fns = initFunctions program })
 
 runProgram' :: Program -> State -> State
 runProgram' p@P { left = l, el = (EOP, _), right = [] } s = s
@@ -47,7 +48,11 @@ runProgram' p@P { left = l, el = (inst, instAddr), right = r } state =
 --
 --
 
-getFn :: String -> ConstPool -> Value
+
+initFunctions :: Program -> FunctionList
+initFunctions program = []
+
+getFn :: String -> FunctionList -> Value
 getFn = undefined
 
 operand2Value :: Runtime.Value -> GlobalVarMap -> Value
@@ -266,13 +271,13 @@ runInstruction (Goto index) cs@(CS { p = p, cp = cp, ia = ia }) =
 runInstruction (Return) cs@(CS { c = (Frame { caller = r } : fs), ia = ia }) =
   cs { c = fs, ia = r }
 
-runInstruction (Call index count) cs@(CS { c = c, g = g, s = s, cp = cp, ia = ia, m = m }) =
+runInstruction (Call index count) cs@(CS { c = c, g = g, s = s, cp = cp, ia = ia, m = m, fns = fns }) =
   state { ia = ia + 1 }
     where
       name = slot2String (cp ! index) cp
       (vals, s') = Stack.popN count s
       args = map (\ o -> operand2RValue o m) vals
-      Function { argsCnt = argC, varsCnt = varC, body = b } = getFn name cp --       g ! name
+      Function { argsCnt = argC, varsCnt = varC, body = b } = getFn name fns --       g ! name
       initVals = replicate varC Runtime.Null
       bodyProg = instructions2Program b
       state =

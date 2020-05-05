@@ -23,6 +23,8 @@ type Output = Seq.Seq String
 
 type ConstPool = Map.Map Index Value
 
+type FunctionList = [Value] -- only Function
+
 data State
   = CS { c      :: Context
        , g      :: GlobalVarMap
@@ -32,4 +34,5 @@ data State
        , cp     :: ConstPool
        , ia     :: InstructionAddress
        , m      :: Memory
-       , gs     :: Globals }
+       , gs     :: Globals
+       , fns    :: FunctionList }
