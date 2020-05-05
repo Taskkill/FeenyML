@@ -15,6 +15,7 @@ data Program = P
   , right   :: [Inst] }
 
 -- TODO: add ConstantPool, GlobalSlots, MainFunction
+-- I shoudln't really add them here - let's just make another helper structure which will hold these values
 
 instructions2Program :: [Instruction] -> Program
 instructions2Program (i : is) = P { left = [], el = (i, 0), right = toInsts is 1 }
