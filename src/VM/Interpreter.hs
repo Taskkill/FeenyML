@@ -37,13 +37,15 @@ runProgram program = output
         , gs = initGlobals program
         , fns = initFunctions program })
 
+-- TODO: please refactor more -- this is ugly
 runProgram' :: Program -> State -> State
-runProgram' p@P { left = l, el = (EOP, _), right = [] } s = s
-
-runProgram' p@P { left = l, el = (inst, instAddr), right = r } state =
-  runProgram' (setToInstruction ia p) cs
+runProgram' program@P { el = (_, addr) right = r } s@CS { ia = ia } =
+  case r of
+    [] -> if ia > addr then s else runProgram' program cs
+    _ -> runProgram' program cs
     where
-      cs@CS { ia = ia } = runInstruction inst state
+      P { el = (inst, _) } = setToInstruction ia p
+      cs = runInstruction inst state
 
 --
 --
