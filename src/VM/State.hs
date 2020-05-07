@@ -14,7 +14,7 @@ import VM.Program.Instruction
 
 type Context = [Frame]
 
-type GlobalVarMap = Map.Map String Runtime.Value
+type GlobalVarMap = Map.Map String Pointer
 
 type SubprogramDir = Map.Map String InstructionAddress
 
@@ -28,14 +28,14 @@ type FunctionList = [Value] -- only Function
 
 -- TODO: consider finally dividing Immutable and Program related stuff to different Structure
 -- State should be only VM realted State stuff
-data State
-  = CS { c      :: Context -- VM State
-       , g      :: GlobalVarMap -- Program
-       , p      :: SubprogramDir -- Program
-       , s      :: OperandStack -- VM State
-       , o      :: Output -- VM State
-       , cp     :: ConstPool -- Program
-       , ia     :: InstructionAddress -- VM Program
-       , m      :: Memory -- VM Program
-       , gs     :: Globals -- 
-       , fns    :: FunctionList } -- Program
+data State = CS
+  { c      :: Context -- VM State
+  , g      :: GlobalVarMap -- Program
+  , p      :: SubprogramDir -- Program
+  , s      :: OperandStack -- VM State
+  , o      :: Output -- VM State
+  , cp     :: ConstPool -- Program
+  , ia     :: InstructionAddress -- VM Program
+  , m      :: Memory -- VM Program
+  , gs     :: Globals -- 
+  , fns    :: FunctionList } -- Program
