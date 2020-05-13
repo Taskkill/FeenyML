@@ -18,7 +18,7 @@ data AST
   | If AST AST AST
   | While AST AST
   | ObjectFieldAccess AST [String]
-  | Method AST [AST] AST
+  | Method AST [AST] AST -- TODO: probably unused --> remove
   | ArrayDef AST AST
   | Application AST [AST]
   | ArrayAccess AST AST
