@@ -9,8 +9,8 @@ data Instruction
   | GetLocal Int -- push the i'th value from the local frame to the Stack
   | SetGlobal Int -- set the global variable with name specified by i'th String value to top Stack value
   | GetGlobal Int -- retrieve the global variable specified by i'th String name and push it to the Stack
-  -- | SetIn Int Int -- first argument indexes to the upper Frames
-  -- | GetIn Int Int -- same ^^^
+  | SetIn Int Int -- first argument indexes to the upper Frames
+  | GetIn Int Int -- same ^^^
   
   | Drop -- drop one value from operand Stack
 
@@ -28,3 +28,4 @@ data Instruction
   | Goto Int -- set instruction pointer to the i'th label name
   | Return -- set Parent Frame as current Frame, also set instruction pointer to the `caller` instruction I think
   | Call Int Int -- function name by i'th String and number of arguments by N
+  deriving (Eq, Ord)

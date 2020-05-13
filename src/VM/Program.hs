@@ -1,18 +1,33 @@
 module VM.Program where
 
 import VM.Program.Instruction (Instruction(..))
-import VM.Program.Value (Index)
+import VM.Program.Value (Index, Value(..))
+import qualified Data.Map.Strict as Map
+import VM.Value (Pointer(..))
 
-type Inst = (Instruction, InstructionAddress)
+type Inst = (Instruction, Index)
 
-type InstructionAddress = Index
-
-type Globals = [Int]
+-- type Globals = [Int]
 
 data Program = P
   { left    :: [Inst]
   , el      :: Inst
   , right   :: [Inst] }
+
+type GlobalVarMap = Map.Map String Pointer
+type SubprogramDir = Map.Map String Index
+type ConstPool = Map.Map Index Value
+type Globals = [Index]
+type FunctionList = [Value] -- only Function
+
+
+data PProgram = PP
+  { program   :: Program -- Zipper
+  , labels    :: SubprogramDir -- Program
+  , constpool :: ConstPool -- Program
+  , globals   :: Globals -- GlobalSlots?? then Program
+  , fns       :: FunctionList } -- Program
+
 
 -- TODO: add ConstantPool, GlobalSlots, MainFunction
 -- I shoudln't really add them here - let's just make another helper structure which will hold these values
@@ -32,7 +47,7 @@ moveLeft :: Program -> Program
 moveLeft P { left = l : ls, el = e, right = r } =
   P { left = ls, el = l, right = e : r }
 
-setToInstruction :: InstructionAddress -> Program -> Program
+setToInstruction :: Index -> Program -> Program
 setToInstruction addr p@P { left = l, el = (inst, instAddr), right = r }
   | addr == instAddr = p
   | addr > instAddr = setToInstruction addr $ moveRight p

@@ -12,7 +12,7 @@ import qualified VM.Value as Runtime
 import VM.Program.Instruction (Instruction(..))
 -- import qualified VM.Program.Instruction as Inst
 
-import VM.State (State(..), Context, GlobalVarMap, SubprogramDir, OperandStack, Output, ConstPool, FunctionList)
+import VM.State -- (VMState(..), Context, OperandStack, Output, FunctionList)
 import VM.Program
 import VM.Memory
 import VM.Frame
@@ -20,12 +20,12 @@ import VM.Frame
 import qualified VM.Lib.Stack as Stack
 
 
-runProgram :: Program -> State -> Output
+runProgram :: PProgram -> VMState -> Output
 runProgram program state = output
   where
-    CS { out = output } =
+    State { out = output } =
       runProgram' program state
-      -- (CS
+      -- (State
       --   { c = []
       --   , g = Map.empty
       --   , p = subProgram program
@@ -38,14 +38,14 @@ runProgram program state = output
       --   , fns = initFunctions program })
 
 -- TODO: please refactor more -- this is ugly
-runProgram' :: Program -> State -> State
-runProgram' program@P { el = (_, addr), right = r } s@CS { instaddr = ia } =
+runProgram' :: PProgram -> VMState -> VMState
+runProgram' (pr@PP { program = program@P { el = (_, addr), right = r } }) s@State { instaddr = ia } =
   case r of
-    [] -> if ia > addr then s else runProgram' program cs
-    _ -> runProgram' program cs
+    [] -> if ia > addr then s else runProgram' pr cs
+    _ -> runProgram' pr cs
     where
       P { el = (inst, _) } = setToInstruction ia program
-      cs = runInstruction inst s
+      cs = runInstruction inst s pr
 
 --
 --
@@ -74,6 +74,8 @@ slot2String (Slot i) cp = str
 valueToOperand_P :: Value -> Runtime.Value
 valueToOperand_P Null = Runtime.Null
 valueToOperand_P (Int i) = Runtime.Int i
+valueToOperand_P (Bool False) = Runtime.Int 0 -- TODO: consider this, maybe replace with native bools in bytecode
+valueToOperand_P (Bool True) = Runtime.Int 1 -- TODO: consider this, maybe replace with native bools in bytecode
 -- this function is partial
 
 variableCount :: Value -> Int
@@ -141,9 +143,10 @@ getNull mem = mem ! 0 -- NOTE: NULL is at index 0
 --
 --
 
-runInstruction :: Instruction -> State -> State
+runInstruction :: Instruction -> VMState -> PProgram -> VMState
 runInstruction (Lit index)
-  cs@(CS { stack = s, constpool = cp, instaddr = ia, memory = (si, mem) }) =
+  cs@(State { stack = s, instaddr = ia, memory = (si, mem) })
+  pr@(PP { constpool = cp }) =
   -- get index's value from the const-pool (Int or Null) and push it to the Stack 
   cs { stack = s', instaddr = ia + 1, memory = (si + 1, m') }
     where
@@ -152,7 +155,8 @@ runInstruction (Lit index)
       s' = Stack.push (Pointer si) s
 
 runInstruction Array
-  cs@(CS { stack = s, instaddr = ia, memory = (si, mem) }) =
+  cs@(State { stack = s, instaddr = ia, memory = (si, mem) })
+  program =
   -- pop initvalue, length from the Stack, create Array object and push it to the Stack
   cs { stack = Stack.push ptr s', instaddr = ia + 1, memory = m' }
     where
@@ -165,7 +169,8 @@ runInstruction Array
       ptr = Runtime.Pointer si
 
 runInstruction (Print format count)
-  cs@(CS { stack = s, out = o, instaddr = ia, memory = (_, mem) }) =
+  cs@(State { stack = s, out = o, instaddr = ia, memory = (_, mem) })
+  program =
   -- pop count arguments from the Stack, modify the Output and push Null to the Stack
   cs { stack = s', out = o', instaddr = ia + 1 }
     where
@@ -175,7 +180,8 @@ runInstruction (Print format count)
       o' = o |> (formatOut format vals)
 
 runInstruction (SetLocal index)
-  cs@(CS { ctx = c, stack = s, instaddr = ia, memory = (_, mem) }) =
+  cs@(State { ctx = c, stack = s, instaddr = ia, memory = (_, mem) })
+  program =
   -- set index'th value in current frame to the top Stack's value
   cs { ctx = c', stack = s', instaddr = ia + 1 }
     where
@@ -184,7 +190,8 @@ runInstruction (SetLocal index)
       c' = updateLocal index ptr c
 
 runInstruction (GetLocal index)
-  cs@(CS { ctx = c, stack = s, instaddr = ia }) =
+  cs@(State { ctx = c, stack = s, instaddr = ia })
+  program =
   -- push the index'th value from local frame to the top of the Stack
   cs { stack = s', instaddr = ia + 1 }
     where
@@ -192,7 +199,8 @@ runInstruction (GetLocal index)
       s' = Stack.push ptr s
 
 runInstruction (SetGlobal index)
-  cs@(CS { gvm = g, stack = s, constpool = cp, instaddr = ia }) =
+  cs@(State { gvm = g, stack = s, instaddr = ia })
+  pr@(PP { constpool = cp }) =
   -- set the global variable named as index'th String slot to the top of the Stack
   cs { gvm = g', stack = s', instaddr = ia + 1 }
     where
@@ -202,7 +210,8 @@ runInstruction (SetGlobal index)
       g' = updateGlobal name ptr g
 
 runInstruction (GetGlobal index)
-  cs@(CS { gvm = g, stack = s, constpool = cp, instaddr = ia }) =
+  cs@(State { gvm = g, stack = s, instaddr = ia })
+  pr@(PP { constpool = cp }) =
   -- get global variable named as index'th String slot and push it's value to the top of the Stack
   cs { stack = s', instaddr = ia + 1 }
     where
@@ -211,14 +220,16 @@ runInstruction (GetGlobal index)
       s' = Stack.push ptr s
 
 runInstruction Drop
-  cs@(CS { stack = s, instaddr = ia }) =
+  cs@(State { stack = s, instaddr = ia })
+  program =
   -- pop single value
   cs { stack = s', instaddr = ia + 1 }
     where
       s' = Stack.pop s
 
 runInstruction (Object index)
-  cs@(CS { ctx = c, stack = s, constpool = cp, instaddr = ia, memory = (si, mem) }) =
+  cs@(State { ctx = c, stack = s, instaddr = ia, memory = (si, mem) })
+  pr@(PP { constpool = cp }) =
   -- get Object's class at index, then check how many variables it has, pop so many values from the Stack and pop one more - superclass, then push the Object on the Stack
   cs { stack = s', instaddr = ia + 1, memory = m' }
     where
@@ -232,7 +243,8 @@ runInstruction (Object index)
       s' = Stack.push (Pointer si) s
 
 runInstruction (GetSlot index)
-  cs@(CS { stack = s, constpool = cp, instaddr = ia, memory = (_, mem) }) =
+  cs@(State { stack = s, instaddr = ia, memory = (_, mem) })
+  pr@(PP { constpool = cp }) =
   -- pop Object from the Stack, index'th slot is String - Object variable name which's value will be pushed to the Stack
   cs { stack = s', instaddr = ia + 1 }
     where
@@ -244,7 +256,8 @@ runInstruction (GetSlot index)
       s' = Stack.push ptr s''
 
 runInstruction (SetSlot index)
-  cs@(CS { ctx = c, stack = s, constpool = cp, instaddr = ia, memory = (si, mem) }) =
+  cs@(State { ctx = c, stack = s, instaddr = ia, memory = (si, mem) })
+  pr@(PP { constpool = cp }) =
   -- pop value, pop Object, then change the variable named as index'th in the Object to the firstly poped value
   cs { stack = s', instaddr = ia + 1, memory = m' }
     where
@@ -264,18 +277,20 @@ runInstruction (SetSlot index)
 -- TODO: implement
 -- abstraction for the syntax sugars like: arr[0], arr[n], 3 + 4
 runInstruction (CallSlot index count)
-  cs@(CS { ctx = c, labels = l, stack = s, out = o, constpool = cp, instaddr = ia }) = undefined
+  cs@(State { ctx = c, stack = s, out = o, instaddr = ia })
+  pr@(PP { labels = l, constpool = cp }) = undefined
 -- this has to implement stuff like arr[i] and numA + numB
   -- when assigning variables to the Frame - check if the value is Object or Array - then store the name to the Object or Array 
   -- pop count values from the Stack, pop receiver Object, index points to the String - name of the method, then call the method
 
 runInstruction (Label index)
-  cs = cs
+  cs pr = cs
   -- names the current instruction, index points to the String with the name
   -- probably not gonna do anything
 
 runInstruction (Branch index)
-  cs@(CS { labels = l, stack = s, constpool = cp, instaddr = ia, memory = (_, mem) }) =
+  cs@(State { stack = s, instaddr = ia, memory = (_, mem) })
+  pr@(PP { labels = l, constpool = cp }) =
   -- pop value from the Stack, if the value is not Null, then jump to the index'th Label
   cs { stack = s', instaddr = ia' }
     where
@@ -289,7 +304,8 @@ runInstruction (Branch index)
           _ -> l ! (slot2String label cp) -- TODO: maybe check if label is (Slot addr)
 
 runInstruction (Goto index)
-  cs@(CS { labels = l, constpool = cp, instaddr = ia, memory = (_, mem) }) =
+  cs@(State { instaddr = ia, memory = (_, mem) })
+  pr@(PP { labels = l, constpool = cp }) =
   -- jump to the index'th Label
   cs { instaddr = ia' }
     where
@@ -298,11 +314,12 @@ runInstruction (Goto index)
       -- name = slot2String slot cp
       ia' = l ! str
 
-runInstruction (Return) cs@(CS { ctx = (Frame { caller = r } : fs), instaddr = ia }) =
+runInstruction (Return) cs@(State { ctx = (Frame { caller = r } : fs), instaddr = ia }) program =
   cs { ctx = fs, instaddr = r }
 
 runInstruction (Call index count)
-  cs@(CS { ctx = c, gvm = g, stack = s, constpool = cp, instaddr = ia, memory = (_, mem), fns = fns }) =
+  cs@(State { ctx = c, gvm = g, stack = s, instaddr = ia, memory = (_, mem) })
+  pr@(PP { constpool = cp, fns = fns }) =
   -- pop count values from the Stack, the name of the function is at the indexth slot
   state { instaddr = ia + 1 }
     where
@@ -311,5 +328,8 @@ runInstruction (Call index count)
       Function { argsCnt = argC, varsCnt = varC, body = b } = getFn name fns --       g ! name
       initVals = replicate varC (Pointer 0) -- Runtime.Null
       bodyProg = instructions2Program b
+      -- TODO: I should probably pick the top-most value from the Stack returned by runProgram'
+      -- then I should push this value on the top of my current Stack and continue/return with that
+      -- functions can put unneeded stuff on the Stack and what am I supposed to do with that? better get rid of it
       state =
-        runProgram' bodyProg $ cs { ctx = Frame { arguments = ptrs, variables = initVals, caller = ia } : c, stack = s', instaddr = 0 }
+        runProgram' (pr { program = bodyProg }) $ cs { ctx = Frame { arguments = ptrs, variables = initVals, caller = ia } : c, stack = s', instaddr = 0 }
