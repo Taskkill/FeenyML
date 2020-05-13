@@ -10,6 +10,7 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict ((!?))
 import qualified Data.List as List
 import qualified Data.String as String
+import Compiler.Desugarizer (blocksToLambdas)
 
 
 data Helper =
@@ -36,11 +37,13 @@ initHelper = H
   , antiCP = Map.singleton P.Null 0
   , labelCounter = 0 }
 
+-- TODO: refactor into single function
 translate :: [AST] -> (PProgram, Program)
 translate asts =
   (state, program)
     where
-      (state, i, h) = translate2 (initProgram, initHelper) asts -- foldl translate' (initProgram, initHelper) asts
+      desugared = blocksToLambdas asts
+      (state, i, h) = translate2 (initProgram, initHelper) desugared -- foldl translate' (initProgram, initHelper) asts
       program = instructions2Program i
       translate2 :: (PProgram, Helper) -> [AST] -> (PProgram, [Instruction], Helper)
       translate2 (program, helper) [] =
