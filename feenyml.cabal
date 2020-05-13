@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.2.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9a75a65505ce63455c91f63e7a2334fe19157ede848d67a2e90e92b155849c84
+-- hash: 1bc598fb3313f3995e298d6ec52e733a9466116c95250e7c8b77b264a218fe67
 
 name:           feenyml
 version:        0.1.0.0
@@ -28,6 +28,7 @@ source-repository head
 library
   exposed-modules:
       AST
+      Compiler.Translator
       Interpreter
       Lib
       Parser
