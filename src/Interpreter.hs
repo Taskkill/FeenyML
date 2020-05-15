@@ -155,6 +155,10 @@ objectCtx (ArrayDef len init) ctx = do
             Right (c, val) -> fill i c $ fromValue val
         _ -> fill i c init
 
+-- QUESTION: what if the functions is declared as this:
+-- let var = function ...
+-- or var <- function ...
+-- or foo(function ...) what about these? 
 initCtx :: Scope -> [AST] -> Either String Scope
 initCtx ctx [] = Right ctx
 initCtx ctx (ast : asts) =
