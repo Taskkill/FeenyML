@@ -22,8 +22,8 @@ type FunctionList = [Value] -- only Function
 
 
 data PProgram = PP
-  { program   :: Program -- Zipper
-  , labels    :: SubprogramDir -- Program
+  -- { program   :: Program -- Zipper
+  { labels    :: SubprogramDir -- Program
   , constpool :: ConstPool -- Program
   , globals   :: Globals -- GlobalSlots?? then Program
   , fns       :: FunctionList } -- Program

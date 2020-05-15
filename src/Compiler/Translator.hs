@@ -20,14 +20,6 @@ data Helper =
     , antiCP        :: Map.Map P.Value Int
     , labelCounter  :: Int }
 
--- data PProgram = PP
---   { program   :: Program -- Zipper
---   , gvm       :: GlobalVarMap -- Program
---   , labels    :: SubprogramDir -- Program
---   , constpool :: ConstPool -- Program
---   , globals   :: Globals -- GlobalSlots?? then Program
---   , fns       :: FunctionList } -- Program
-
 
 initHelper :: Helper
 initHelper = H
@@ -75,7 +67,10 @@ translateN = undefined
 
 initProgram :: PProgram
 initProgram = PP
-  { constpool = Map.singleton 0 P.Null } -- TODO: complete
+  { labels = Map.empty -- TODO: this needs to be replaced -- with actually pre-processed labels
+  , constpool = Map.singleton 0 P.Null
+  , globals = []
+  , fns = [] } -- TODO: complete
 
 translate' :: (PProgram, Helper)  -> AST -> (PProgram, [Instruction], Helper)
 translate'
@@ -127,7 +122,8 @@ translate'
           cp'' = Map.insert fnAddr P.Null cp' -- placeholder Null is stored in the constpool
           gls' = fnAddr : gls -- function's address is added to the global slots
           fr = frames helper
-          (s, b, h) = translate' (program { constpool = cp', globals = gls' }, H { localVarsCnt = 0, nestLevel = nl + 1, frames = [] : fr }) body -- program and body instructions
+          help = H { localVarsCnt = 0, nestLevel = nl + 1, frames = [] : fr, antiCP = acp', labelCounter = labelCounter helper }
+          (s, b, h) = translate' (program { constpool = cp', globals = gls' }, help) body -- program and body instructions
           vc = List.length $ List.head $ frames h -- number of the function local variables
           -- it's List.last because frames add up from left
           fn = P.Function { P.nameInd = nmAddr, P.argsCnt = ac, P.varsCnt = vc, P.body = b } -- function finally created

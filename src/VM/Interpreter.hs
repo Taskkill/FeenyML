@@ -20,11 +20,11 @@ import VM.Frame
 import qualified VM.Lib.Stack as Stack
 
 
-runProgram :: PProgram -> VMState -> Output
-runProgram program state = output
+runProgram :: Program -> PProgram -> VMState -> Output
+runProgram instructions program state = output
   where
     State { out = output } =
-      runProgram' program state
+      runProgram' instructions program state
       -- (State
       --   { c = []
       --   , g = Map.empty
@@ -38,11 +38,11 @@ runProgram program state = output
       --   , fns = initFunctions program })
 
 -- TODO: please refactor more -- this is ugly
-runProgram' :: PProgram -> VMState -> VMState
-runProgram' (pr@PP { program = program@P { el = (_, addr), right = r } }) s@State { instaddr = ia } =
+runProgram' :: Program -> PProgram -> VMState -> VMState
+runProgram' (program@P { el = (_, addr), right = r }) pr s@State { instaddr = ia } =
   case r of
-    [] -> if ia > addr then s else runProgram' pr cs
-    _ -> runProgram' pr cs
+    [] -> if ia > addr then s else runProgram' program pr cs
+    _ -> runProgram' program pr cs
     where
       P { el = (inst, _) } = setToInstruction ia program
       cs = runInstruction inst s pr
@@ -332,4 +332,4 @@ runInstruction (Call index count)
       -- then I should push this value on the top of my current Stack and continue/return with that
       -- functions can put unneeded stuff on the Stack and what am I supposed to do with that? better get rid of it
       state =
-        runProgram' (pr { program = bodyProg }) $ cs { ctx = Frame { arguments = ptrs, variables = initVals, caller = ia } : c, stack = s', instaddr = 0 }
+        runProgram' bodyProg pr (cs { ctx = Frame { arguments = ptrs, variables = initVals, caller = ia } : c, stack = s', instaddr = 0 })
