@@ -10,7 +10,7 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict ((!?))
 import qualified Data.List as List
 import qualified Data.String as String
-import Compiler.Desugarizer (blocksToLambdas)
+import Compiler.Desugarizer (blocksToLambdas, localFnsToGlobal)
 
 
 data Helper =
@@ -34,7 +34,7 @@ translate :: [AST] -> (PProgram, Program)
 translate asts =
   (state, program)
     where
-      desugared = blocksToLambdas asts
+      desugared = localFnsToGlobal $ blocksToLambdas asts
       (state, i, h) = translate2 (initProgram, initHelper) desugared -- foldl translate' (initProgram, initHelper) asts
       program = instructions2Program i
       translate2 :: (PProgram, Helper) -> [AST] -> (PProgram, [Instruction], Helper)
