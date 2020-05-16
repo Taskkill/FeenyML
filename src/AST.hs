@@ -1,5 +1,7 @@
 module AST where
 
+import qualified Data.List as List
+
 import qualified Tokens as Token 
 
 data AST
@@ -25,7 +27,33 @@ data AST
   | Print String [AST]
   | Operation Operator AST AST
   | This
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show AST where
+  show (Number i) = show i
+  show (Boolean True) = "true"
+  show (Boolean False) = "false"
+  show Unit = "begin end"
+  show (Block exprs) = "begin\n" ++ (List.intercalate "\n" (List.map show exprs)) ++ "\nend"
+  show (FunctionDef name params body) = "function " ++ name ++ " (" ++ (List.intercalate "," params) ++ ") ->\n" ++ show body
+  show (Let name expr) = "let " ++ name ++ " = " ++ show expr
+  show (OperatorDef op params body) = "operator " ++ show op ++ " (" ++ (List.intercalate "," params) ++ ") ->\n" ++ show body
+  show (ObjectDef super definition) = "[object]"
+  show (ReAssignment name expr) = name ++ " <- " ++ show expr
+  show (FieldReAssignment object expr) = show object ++ " <- " ++ show expr
+  show (ArrayIndexReAssignment array value) = show array ++ " <- " ++ show value
+  show (Identifier name) = name
+  show (If cond then' else') = "if " ++ show cond ++ " then\n" ++ show then' ++ "\nelse\n" ++ show else'
+  show (While cond body) = "while " ++ show cond ++ " do\n" ++ show body
+  show (ObjectFieldAccess object members) = show object ++ "." ++ List.intercalate "." members
+  show (Method _ _ _) = "[method]"
+  show (ArrayDef len init) = "Array(" ++ show len ++ ", " ++ show init ++ ")"
+  show (Application fn args) = show fn ++ "(" ++ List.intercalate "," (List.map show args) ++ ")"
+  show (ArrayAccess array index) = show array ++ "[" ++ show index ++ "]"
+  show (Print format args) = "Print(" ++ format ++ ", " ++ (List.intercalate "," $ List.map show args) ++ ")"
+  show (Operation op left right) = show left ++ " " ++ show op ++ " " ++ show right
+  show This = "this"
+
 
 data Operator
   = Multiply
