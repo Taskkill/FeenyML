@@ -1,0 +1,36 @@
+begin
+begin
+23 + 23 + 23
+end;
+function foo (arg) ->
+  begin
+  function innerFn (arg2) ->
+    begin
+    function innermostFn (arg3) -> arg + arg2 + arg3;
+    innermostFn(arg2)
+    end;
+  innerFn(arg)
+  end;
+foo(23)
+end;
+
+begin
+2 + 3
+end;
+
+function baz (arg) ->
+begin
+  let var = begin 23 end;
+  var <- begin 42 end;
+  begin
+    23 + 23 + 23
+  end
+end;
+
+baz(0);
+
+if begin 23 < 42 end then begin 23 end else begin 42 end;
+
+function ooof (foo, bag, org, mag, hum) -> foo;
+
+ooof(begin 1 end, begin 23 end, begin 42 end, true, begin false end)

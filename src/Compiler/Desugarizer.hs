@@ -13,51 +13,221 @@ blocksToLambdas =
       blocksToLambdas' _ [] = []
       blocksToLambdas' i (expr : exprs) =
         case expr of
-          Block body -> undefined
-            -- call blocksToLambdas' 0 on body
-            -- first create FunctionDef -- name like 'block[i]'
-            -- then create Call to that function
-          FunctionDef name args body -> undefined
-            -- NOW this is exception -- if function's body is block of code then this single block of code is OK
-            -- any block of code nested inside this top level - function's body - however is not OK
-            -- call blocksToLambdas' 0 body
-            -- that's it
-          Let varname expr -> undefined
-            -- call blocksToLambdas' 0 expr
-            -- that's it
-          OperatorDef op args body -> undefined
-            -- call blocksToLambdas' 0 body
-            -- that's it
-          ObjectDef super definition -> undefined
-            -- call blocksToLambdas' 0 definition
-            -- that's it
-          ReAssignment varname expr -> undefined
-            -- call blocksToLambdas' 0 expr
-            -- that's it
-          FieldReAssignment object expr -> undefined
-            -- since I believe object can only be something like name . name2 . name3 ...
-            -- call blocksToLambdas' 0 expr
-            -- that's it
-          ArrayIndexReAssignment access epxr -> undefined
-            -- since I believe similar holds for this
-            -- call blocksToLambdas' 0 expr
-          If condition then' else' -> undefined
-            -- check if each of them is a Block
-            -- if so -> undefined first declare local function before If and then call it
-          While condition body -> undefined
-            -- same as If
-          ArrayDef length initvalue -> undefined
-            -- same
-          Application callee params -> undefined
-            -- walk through all parameters and if any of them is Block
-            -- the function needs to be put before application
-            -- and the actuall parameter is just function call
-          ArrayAccess indexable expr -> undefined
-            -- check expr for being Block
-          Print format params -> undefined
-            -- essentially Application --> undefined same treatment
-          Operation op left right -> undefined
-            -- left and right both check for being Block
+          Block body ->
+            let
+              name = "block#" ++ show i
+              body' = blocksToLambdas' 0 body
+              fn = FunctionDef name [] (Block body') 
+              call = Application (Identifier name) []
+            in
+              [fn, call] ++ blocksToLambdas' (i + 1) exprs
+                    
+          FunctionDef name args (Block body) ->
+            let
+              body' = blocksToLambdas' 0 body
+              fn = FunctionDef name args (Block body')
+            in
+              fn : blocksToLambdas' i exprs
+          
+          Let varname (Block body) ->
+            let
+              body' = blocksToLambdas' 0 body
+              name = "block#" ++ show i
+              fn = FunctionDef name [] (Block body')
+              app = Application (Identifier name) []
+            in
+              [fn, Let varname app] ++ blocksToLambdas' (i + 1) exprs
+
+          OperatorDef op args (Block body) ->
+            let
+              body' = blocksToLambdas' 0 body
+              fn = OperatorDef op args (Block body')
+            in
+              fn : blocksToLambdas' i exprs
+
+          -- ObjectDef super definition -> undefined
+          
+          ReAssignment varname (Block val) ->
+            let
+              name = "block#" ++ show i
+              val' = blocksToLambdas' 0 val
+              fn = FunctionDef name [] (Block val')
+              app = Application (Identifier name) []
+            in
+              [fn, ReAssignment varname app] ++ blocksToLambdas' (i + 1) exprs
+
+          FieldReAssignment object (Block val) ->
+            let
+              name = "block#" ++ show i
+              val' = blocksToLambdas' 0 val
+              fn = FunctionDef name [] (Block val')
+              app = Application (Identifier name) []
+            in
+              [fn, FieldReAssignment object app] ++ blocksToLambdas' (i + 1) exprs
+
+          ArrayIndexReAssignment access (Block val) ->
+            let
+              name = "block#" ++ show i
+              val' = blocksToLambdas' 0 val
+              fn = FunctionDef name [] (Block val')
+              app = Application (Identifier name) []
+            in
+              [fn, ArrayIndexReAssignment access app] ++ blocksToLambdas' (i + 1) exprs
+
+          If condition then' else' ->
+            let
+              (i', condition', fns') =
+                case condition of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i + 1, Application (Identifier name) [], [fn])
+                  _ -> (i, condition, [])
+              
+              (i'', then'', fns'') =
+                case then' of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i'
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i' + 1, Application (Identifier name) [], [fn])
+                  _ -> (i', then', [])
+              
+              (i''', else''', fns''') =
+                case else' of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i''
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i'' + 1, Application (Identifier name) [], [fn])
+                  _ -> (i'', else', [])
+            
+              before = fns' ++ fns'' ++ fns'''
+            in
+              before ++ [If condition' then'' else'''] ++ blocksToLambdas' i''' exprs
+                    
+          While condition body ->
+            let
+              (i', condition', fns') =
+                case condition of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i + 1, Application (Identifier name) [], [fn])
+                  _ -> (i, condition, [])
+              
+              (i'', body'', fns'') =
+                case body of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i'
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i' + 1, Application (Identifier name) [], [fn])
+                  _ -> (i', body, [])
+              
+              before = fns' ++ fns''
+            in
+              before ++ [While condition' body''] ++ blocksToLambdas' i'' exprs
+
+          ArrayDef length initvalue ->
+            let
+              (i', length', fns') =
+                case length of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i + 1, Application (Identifier name) [], [fn])
+                  _ -> (i, length, [])
+              
+              (i'', initvalue'', fns'') =
+                case initvalue of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i'
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i' + 1, Application (Identifier name) [], [fn])
+                  _ -> (i', initvalue, [])
+
+              before = fns' ++ fns''
+            in
+              before ++ [ArrayDef length' initvalue''] ++ blocksToLambdas' i'' exprs
+
+          Application callee args ->
+            let
+              unblock (i', args', fns') exp =
+                case exp of
+                  Block body ->
+                    let
+                      name = "block#" ++ show i'
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 body
+                    in
+                      (i' + 1, args' ++ [Application (Identifier name) []], fns' ++ [fn])
+                  _ -> (i', args', fns')
+
+              (i'', args'', fns'') = List.foldl unblock (i, [], []) args
+            in
+              fns'' ++ [Application callee args''] ++ blocksToLambdas' i'' exprs
+          
+          ArrayAccess indexable (Block exp) ->
+            let
+              name = "block#" ++ show i
+              fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+              app = Application (Identifier name) []
+            in
+              fn : ArrayAccess indexable app : blocksToLambdas' (i + 1) exprs
+
+          Print format args ->
+            let
+              unblock (i', args', fns') exp =
+                case exp of
+                  Block body ->
+                    let
+                      name = "block#" ++ show i'
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 body
+                    in
+                      (i' + 1, args' ++ [Application (Identifier name) []], fns' ++ [fn])
+                  _ -> (i', args', fns')
+
+              (i'', args'', fns'') = List.foldl unblock (i, [], []) args
+            in
+              fns'' ++ [Print format args''] ++ blocksToLambdas' i'' exprs
+
+          Operation op left right ->
+            let
+              (i', left', fns') =
+                case left of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i + 1, Application (Identifier name) [], [fn])
+                  _ -> (i, left, [])
+              
+              (i'', right'', fns'') =
+                case right of
+                  Block exp ->
+                    let
+                      name = "block#" ++ show i'
+                      fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 exp
+                    in
+                      (i' + 1, Application (Identifier name) [], [fn])
+                  _ -> (i', right, [])
+
+              before = fns' ++ fns''
+            in
+              before ++ [Operation op left' right''] ++ blocksToLambdas' i'' exprs
+
           _ -> expr : blocksToLambdas' i exprs
 
 
@@ -82,7 +252,10 @@ phase1 exprs namespace translator =
       phase1' translator expr = 
         case expr of
           FunctionDef name args body ->
-            Map.insert name (namespace ++ "@" ++ name) translator
+            let
+              name' = if namespace == "" then name else namespace ++ "@" ++ name
+            in
+              Map.insert name name' translator
           _ ->
             translator
 
@@ -104,8 +277,9 @@ phase2 exprs namespace translator =
         case expr of
           FunctionDef name args (Block body) ->
             let
-              translator' = phase1 body namespace translator
-              body' = phase2 body namespace translator'
+              namespace' = if namespace == "" then name else namespace ++ "@" ++ name
+              translator' = phase1 body namespace' translator
+              body' = phase2 body namespace' translator'
             in
               FunctionDef (translator ! name) args (Block body')
           
@@ -137,8 +311,9 @@ phase2 exprs namespace translator =
             ArrayDef (phase2' length) (phase2' initvalue)
 
           Print format args ->
-            Print format $ phase2 args namespace translator          
+            Print format $ phase2 args namespace translator        
 
+          _ -> expr
 
 -- foldlMapState :: ((a, s) -> (a, s)) -> s -> [a] -> [a]
 -- foldlMapState _ _ [] = []
