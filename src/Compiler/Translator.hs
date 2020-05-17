@@ -10,7 +10,8 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict ((!?))
 import qualified Data.List as List
 import qualified Data.String as String
-import Compiler.Desugarizer (blocksToLambdas, localFnsToGlobal)
+import Compiler.Desugarizer (desugarize)
+import qualified Compiler.Initializer as Initializer
 
 
 data Helper =
@@ -25,27 +26,30 @@ initHelper :: Helper
 initHelper = H
   { localVarsCnt = 0
   , nestLevel = 0
-  , frames = []
+  , frames = [[]] -- the inner empty list is essentially Frame.empty -- top-most init Frame
   , antiCP = Map.singleton P.Null 0
   , labelCounter = 0 }
 
--- TODO: refactor into single function
-translate :: [AST] -> (PProgram, Program)
+-- TODO: refactor into single function or not - idk/c
+-- TODO: initialize prgstate.labels
+translate :: [AST] -> (PProgram, Program, [Instruction])
 translate asts =
-  (state, program)
+  (prgstate, program, i)
     where
-      desugared = localFnsToGlobal $ blocksToLambdas asts
-      (state, i, h) = translate2 (initProgram, initHelper) desugared -- foldl translate' (initProgram, initHelper) asts
+      desugared = desugarize asts
+      (prgstate, i, h) = translate2 (initProgram, initHelper) desugared -- TODO: don't forget to initialize program.fns
       program = instructions2Program i
-      translate2 :: (PProgram, Helper) -> [AST] -> (PProgram, [Instruction], Helper)
-      translate2 (program, helper) [] =
-        (program, [], helper)
-      translate2 (program, helper) (a : asts) =
-        let
-          (p, i, h) = translate' (program, helper) a
-          (p', i', h') = translate2 (p, h) asts
-        in
-          (p', i ++ i', h')
+
+
+translate2 :: (PProgram, Helper) -> [AST] -> (PProgram, [Instruction], Helper)
+translate2 (program, helper) [] =
+  (program, [], helper)
+translate2 (program, helper) (a : asts) =
+  let
+    (p, i, h) = translate' (program, helper) a
+    (p', i', h') = translate2 (p, h) asts
+  in
+    (p', i ++ i', h')
   -- do stuff
   -- register all global functions
   -- local functions are gonna be translated to jumps
@@ -62,8 +66,10 @@ findVar = findVar' 0
         Nothing -> findVar' (i + 1) name frames
 
 translateN :: Int -> (PProgram, Helper) -> [AST] -> (PProgram, [Instruction], Helper)
-translateN = undefined
+translateN count prog'help program = translate2 prog'help $ List.take count program
 -- IMPORTANT: actuall instruction order needs to be reversed --> probably
+-- I don't think so - head should be the first AST and that's all
+-- TODO: really think about this implementation - I wrote it without gigin it much thought
 
 initProgram :: PProgram
 initProgram = PP
@@ -107,58 +113,46 @@ translate'
         -- it is also given prominent address at the index 0
         (program, [Lit 0], helper)
 
-      FunctionDef name args body ->
+      FunctionDef name params body ->
         let
           -- TODO: I am gonna rewrite this part in the future
           -- before compilation I will traverse the whole ast to transform local functions and block
           -- I will mind every function and register their names into some List
           -- this List is then going to initialize constpool with function names - so recursion is working
           -- therefore when I arrive here - no need to store the function name to the constpool - it's already there
+
+          -- I am not sure this ^^^ is needed
+          -- it feels like recursion will work just fine - because of previous transformations and THEIR checks
+          -- so the following code shoudl be fine?
+
+          -- from Block -- comment >>
+          -- i lokalni funkce musi jit do constpoolu, fns listu, global slots listu atd
+
+
           nmAddr = Map.size cp -- future address of the function name in the constpool
           cp' = Map.insert nmAddr (P.String name) cp -- name is stored in the constpool
           acp' = Map.insert (P.String name) nmAddr acp -- store name and addr into anti constpool too
-          ac = length args -- number of fn's arguments
+          parCnt = length params -- number of fn's parameters
           fnAddr = nmAddr + 1 -- Map.size cp' -- future function address in the constpool
           cp'' = Map.insert fnAddr P.Null cp' -- placeholder Null is stored in the constpool
           gls' = fnAddr : gls -- function's address is added to the global slots
           fr = frames helper
-          help = H { localVarsCnt = 0, nestLevel = nl + 1, frames = [] : fr, antiCP = acp', labelCounter = labelCounter helper }
-          (s, b, h) = translate' (program { constpool = cp', globals = gls' }, help) body -- program and body instructions
+          help = H { localVarsCnt = parCnt, nestLevel = nl + 1, frames = List.reverse params : fr, antiCP = acp'', labelCounter = labelCounter helper }
+          (s, b, h) = translate' (program { constpool = cp'', globals = gls' }, help) body -- program and body instructions
           vc = List.length $ List.head $ frames h -- number of the function local variables
           -- it's List.last because frames add up from left
-          fn = P.Function { P.nameInd = nmAddr, P.argsCnt = ac, P.varsCnt = vc, P.body = b } -- function finally created
+          fn = P.Function { P.nameInd = nmAddr, P.argsCnt = parCnt, P.varsCnt = vc, P.body = b ++ [Return] } -- function finally created
           cp''' = constpool s
           cp'''' = Map.insert fnAddr fn cp''' -- replace the Null placeholder with actuall function
           acp'' = Map.insert fn fnAddr acp'
-          program' = s { constpool = cp', fns = fn : fns } -- final program
+          program' = s { constpool = cp'''', fns = fn : fns } -- final program
           helper' = helper { antiCP = acp'' }
         in
           (program', [], helper')
       -- 
 
-      -- TODO: Block will disappear
-      Block exprs -> (program, [], helper)
-      -- blok je v podstate anonymni lokalni funkce
-      -- nema zadne argumenty
-      -- pokud to takhle ale udelam, pak musim lokalni funkce implementovat jako skutecne funkce - zadne jumpy a labely
-      -- i lokalni funkce musi jit do constpoolu, fns listu, global slots listu atd
-      -- lokalni funkce tedy budou promotnute na globalni fce a s tim se poji i nutnost jim vytvorit unikatni identifikator
-      -- navrhuji retezit jmena funkci pomoci operatoru @ napriklad:
-      -- topFn@innerFn@mostNestedFn
-      -- takhle bude prejmenovana kazda lokalni fce a jeji Call AST Node
-      -- tahle transformace by se asi mela odehrat driv nez se bude delat samotnej preklad
-      -- diky tomu uz pri prekladu bude vsechno spravne prejmenovany
-      -- a blocky teda budou anonymni lokalni fce bez argumentu -- bohuzel nic jako funkce beze jmena FML nezna
-      -- musim kazdemu bloku tedy nejake unikatni jmeno pridelit -- to asi nebude problem - proste zacnu s
-      -- anonymous#0 ... anonymous#1 -- nebo block#0 ... block#1
-      -- i tahle transformace se musi odehrat idealne pred kompilaci
-      -- takze Block zmizi uplne a bude to jenom call do lokalni funkce
-
-      -- consider two options
-      -- A) treating Blocks as functions -- this will only work if local functions are implemented as real functions
-      -- B) treating Blocks as jumps
-      -- essentially I am going to implement Blocks as the local functions
-      -- whichever impl will be chosen for loc. fns will also be chosen for the blocks
+      Block exprs -> -- (program, [], helper)
+        translate2 (program, helper) exprs
 
       Let name value ->
         let
@@ -198,19 +192,6 @@ translate'
               (program', instructions ++ [SetIn frIndex varIndex], helper')
             Nothing -> error $ "Compile error: variable " ++ name
               ++ " which you are trying to re-assign a value, is not in the scope."
-
-        -- I have to find which frame the variable comes from
-        -- in the helper.frames I go from the head to the tail of the each list of variables
-        -- once I find it I have both indexes - index of the frame and index of the variable itself
-        -- there is catch though - index of the var in the frame is reversed - 0 is first variable - at the end of the frame
-        -- so this needs to be taken care of
-        -- after that - it's just push the value onto the stack
-        -- the value first needs to be translated to the bytecode
-        -- it's program is first - it should push it to the Stack
-        -- then SetIn index' index'' picks it up
-        
-        -- I am gonna go with the SetIn
-        -- SetLocal or SetGlobal
 
       FieldReAssignment accessor value -> undefined
       -- SetSlot

@@ -8,7 +8,10 @@ import Parser (parse)
 import Interpreter (evaluate)
 
 -- import VM.Interpreter
--- import Compiler.Desugarizer (blocksToLambdas, localFnsToGlobal)
+import Compiler.Desugarizer (desugarize)
+import Compiler.Translator (translate)
+import VM.Program (Program(..))
+import qualified Data.Map.Strict as Map
 
 -- import Lib
 
@@ -22,13 +25,20 @@ main = do
     Left msg -> print msg
     Right v -> print v
   print "----------------------------------------------"
-  -- let desugarized = localFnsToGlobal $ blocksToLambdas $ ast
-  -- r <- evaluate ast
-  -- case r of
-  --   Left msg -> print msg
-  --   Right v -> print v
-  -- print ".............................................."
-  -- putStrLn $ List.intercalate ";\n" $ List.map show ast
-  -- print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  -- putStrLn $ List.intercalate ";\n" $ List.map show desugarized
-  -- print "______________________________________________"
+  -----------------------------------------------------
+  let desugarized = desugarize ast
+  r <- evaluate desugarized
+  case r of
+    Left msg -> print msg
+    Right v -> print v
+  print ".............................................."
+  putStrLn $ List.intercalate ";\n" $ List.map show ast
+  print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  putStrLn $ List.intercalate ";\n" $ List.map show desugarized
+  print "______________________________________________"
+  ------------------------
+  let (prg, zipper, insts) = translate ast
+  print prg
+  print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  -- print $ right zipper
+  print insts
