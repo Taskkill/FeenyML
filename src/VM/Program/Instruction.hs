@@ -28,4 +28,4 @@ data Instruction
   | Goto Int -- set instruction pointer to the i'th label name
   | Return -- set Parent Frame as current Frame, also set instruction pointer to the `caller` instruction I think
   | Call Int Int -- function name by i'th String and number of arguments by N
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)

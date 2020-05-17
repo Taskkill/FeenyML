@@ -27,6 +27,7 @@ data PProgram = PP
   , constpool :: ConstPool -- Program
   , globals   :: Globals -- GlobalSlots?? then Program
   , fns       :: FunctionList } -- Program
+  deriving (Show)
 
 
 -- TODO: add ConstantPool, GlobalSlots, MainFunction
