@@ -5,6 +5,11 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict ((!))
 import qualified Data.List as List
 
+
+desugarize :: [AST] -> [AST]
+desugarize = localFnsToGlobal . blocksToLambdas
+
+
 blocksToLambdas :: [AST] -> [AST]
 blocksToLambdas =
   blocksToLambdas' 0 -- the number is evergrowing index of blocks --> each block has uniqe index
@@ -278,7 +283,7 @@ phase2 exprs namespace translator =
           FunctionDef name args (Block body) ->
             let
               namespace' = if namespace == "" then name else namespace ++ "@" ++ name
-              translator' = phase1 body namespace' translator
+              translator' = Map.union translator $ phase1 body namespace' translator
               body' = phase2 body namespace' translator'
             in
               FunctionDef (translator ! name) args (Block body')
