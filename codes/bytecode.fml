@@ -1,0 +1,22 @@
+let zero = 0;
+let one = 1;
+let onee = 1;
+let t = true;
+let f = false;
+zero;
+let nl = begin end;
+nl;
+let oonee = one;
+
+
+function foo () -> one;
+function bar (a, b, c, d, e) ->
+  begin
+    function inner () -> b;
+    a <- b;
+    let var = a;
+    var
+  end;
+
+
+if zero then begin 23 end else begin 42 end
