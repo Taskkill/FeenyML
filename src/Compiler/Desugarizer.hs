@@ -177,7 +177,7 @@ blocksToLambdas =
                       fn = FunctionDef name [] $ Block $ blocksToLambdas' 0 body
                     in
                       (i' + 1, args' ++ [Application (Identifier name) []], fns' ++ [fn])
-                  _ -> (i', args', fns')
+                  _ -> (i', args' ++ [exp], fns')
 
               (i'', args'', fns'') = List.foldl unblock (i, [], []) args
             in
