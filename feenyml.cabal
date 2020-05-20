@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 51025f05c82fd35795fd5de72e50e9ca08515ad0b95739c137c0830441b802cd
+-- hash: 8fee74277f11edf7bfcf7706aa8d3d29f58fbe1f2a7dd6b4caffe0626aac8400
 
 name:           feenyml
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       AST
       Compiler.Desugarizer
+      Compiler.Initializer
       Compiler.Translator
       Interpreter
       Lib
