@@ -8,3 +8,4 @@ data Frame = Frame
   { arguments :: [Pointer] -- really? are those Runtime.Values?
   , variables :: [Pointer] -- really? are those Runtime.Values?
   , caller    :: Index }
+  deriving (Show)

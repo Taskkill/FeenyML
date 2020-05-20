@@ -16,8 +16,10 @@ data Value
   | Array { vals :: [Pointer] }
   | Object { vars :: [Pointer], super :: Pointer, cl :: Program.Value }
   | AntiValue
+  deriving (Show)
 
 data Pointer = Pointer Address
+              deriving (Show)
 
 -- data Value
 --   = Int Int

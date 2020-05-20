@@ -40,3 +40,4 @@ data VMState = State
   , out       :: Output
   , instaddr  :: Index
   , memory    :: Memory }
+  deriving (Show)
