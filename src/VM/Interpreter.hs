@@ -20,22 +20,12 @@ import VM.Frame
 import qualified VM.Lib.Stack as Stack
 
 
-runProgram :: Program -> PProgram -> VMState -> Output
-runProgram instructions program state = output
+runProgram :: Program -> PProgram -> VMState -> (Output, OperandStack, Memory, VMState)
+runProgram instructions program state = (output, stack, mem, s)
   where
-    State { out = output } =
+    s@State { out = output, stack = stack, memory = mem } =
       runProgram' instructions program state
-      -- (State
-      --   { c = []
-      --   , g = Map.empty
-      --   , p = subProgram program
-      --   , s = Stack.empty
-      --   , o = Seq.empty
-      --   , cp = getConstPool program
-      --   , ia = 0
-      --   , m = initMemory
-      --   , gs = initGlobals program
-      --   , fns = initFunctions program })
+
 
 -- TODO: please refactor more -- this is ugly
 runProgram' :: Program -> PProgram -> VMState -> VMState
@@ -46,9 +36,6 @@ runProgram' (program@P { el = (_, addr), right = r }) pr s@State { instaddr = ia
     where
       P { el = (inst, _) } = setToInstruction ia program
       cs = runInstruction inst s pr
-
---
---
 
 
 -- initFunctions :: Program -> FunctionList
@@ -183,41 +170,52 @@ runInstruction (SetLocal index)
   cs@(State { ctx = c, stack = s, instaddr = ia, memory = (_, mem) })
   program =
   -- set index'th value in current frame to the top Stack's value
-  cs { ctx = c', stack = s', instaddr = ia + 1 }
-    where
-      ptr = Stack.top s
-      s' = Stack.pop s
-      c' = updateLocal index ptr c
+    cs { ctx = c', stack = s', instaddr = ia + 1 }
+      where
+        ptr = Stack.top s
+        s' = Stack.pop s
+        c' = updateLocal index ptr c
 
 runInstruction (GetLocal index)
   cs@(State { ctx = c, stack = s, instaddr = ia })
   program =
   -- push the index'th value from local frame to the top of the Stack
-  cs { stack = s', instaddr = ia + 1 }
-    where
-      ptr = getFromLocal index c
-      s' = Stack.push ptr s
+    cs { stack = s', instaddr = ia + 1 }
+      where
+        ptr = getFromLocal index c
+        s' = Stack.push ptr s
 
 runInstruction (SetGlobal index)
   cs@(State { gvm = g, stack = s, instaddr = ia })
   pr@(PP { constpool = cp }) =
   -- set the global variable named as index'th String slot to the top of the Stack
-  cs { gvm = g', stack = s', instaddr = ia + 1 }
-    where
-      name = slot2String (cp ! index) cp
-      ptr = Stack.top s
-      s' = Stack.pop s
-      g' = updateGlobal name ptr g
+    cs { gvm = g', stack = s', instaddr = ia + 1 }
+      where
+        name = slot2String (cp ! index) cp
+        ptr = Stack.top s
+        s' = Stack.pop s
+        g' = updateGlobal name ptr g
 
 runInstruction (GetGlobal index)
   cs@(State { gvm = g, stack = s, instaddr = ia })
   pr@(PP { constpool = cp }) =
   -- get global variable named as index'th String slot and push it's value to the top of the Stack
-  cs { stack = s', instaddr = ia + 1 }
-    where
-      name = slot2String (cp ! index) cp
-      ptr = getFromGlobal name g
-      s' = Stack.push ptr s
+    cs { stack = s', instaddr = ia + 1 }
+      where
+        name = slot2String (cp ! index) cp
+        ptr = getFromGlobal name g
+        s' = Stack.push ptr s
+
+-- runInstruction (SetIn frameindex varindex)
+--   cs@(State { gvm = g, stack = s, instaddr = ia })
+--   pr@(PP { constpool = cp }) =
+--     -- set the varindex'th local variable in frameindex'th frame - counted from current being 0
+--     cs { stack = s', instaddr = ia + 1 }
+--       where
+--         -- v podstate musim najit ntej frame od vrcholu frame-chainu
+--         -- a ten musim vzit a nastavit jeho mtou promennou od konce na hodnotu z vrcholu zasobniku
+-- TODO: implement + implement GetIn
+
 
 runInstruction Drop
   cs@(State { stack = s, instaddr = ia })
