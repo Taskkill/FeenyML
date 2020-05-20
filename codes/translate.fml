@@ -1,0 +1,18 @@
+let zero = 0;
+let one = 1;
+
+begin
+  let variable = 23;
+  variable
+end;
+
+function foo (a) -> a;
+
+function bar (a, b, c) ->
+begin
+  function inner () -> c;
+  let var = inner();
+  b
+end;
+
+bar(1, 2, 3)
