@@ -10,7 +10,7 @@ data Value
   | Num Int
   | Bool Bool
   | Error String
-  deriving (Show)
+  deriving (Show, Eq)
 
 type Binding = (String, Value)
 

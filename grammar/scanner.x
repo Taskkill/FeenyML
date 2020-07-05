@@ -56,7 +56,7 @@ tokens :-
   do                                      { \s -> Do }
   extends                                 { \s -> Extends }
 
-  this|[_$alpha]([$alpha$digit]|_\')*     { \s -> Identifier s -- [this[_$alpha][$alpha$digit]*] }
+  [_$alpha]([$alpha$digit]|_\')*          { \s -> Identifier s -- [this[_$alpha][$alpha$digit]*] }
   \-?$digit+                              { \s -> Number $ read s }
   "$alpha"                                { \s -> String $ read s -- fix }
 

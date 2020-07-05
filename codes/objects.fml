@@ -5,6 +5,9 @@ let a = object
     function get () -> this.local
   end;
 
+a.local.val;
+a.get().f();
+
 let o = object
   begin
     let local = 23;
@@ -12,8 +15,7 @@ let o = object
   end;
 
 
-a.local.val;
-a.get().f();
+
 
 let c = object
   begin
