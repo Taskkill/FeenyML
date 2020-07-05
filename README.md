@@ -143,6 +143,7 @@ You can run examples like:
 or you can see almost complete output of `stack run feenyml-exe < codes/faact.fml` there you will see some compilation - specificaly desugarization - info.
 
 
+## Compilation
 
 Speaking of which - first part of the compilation is desugarization of the code.
 
