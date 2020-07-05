@@ -27,11 +27,21 @@ main = do
   i <- getContents
   let tokens = scan i
   let ast = parse tokens
-  -- r <- evaluate ast
-  -- case r of
-  --   Left msg -> print msg
-  --   Right v -> print v
+  r <- evaluate ast
+  print "AST Interpreter Evaluated the Program to:"
+  case r of
+    Left msg -> print msg
+    Right v -> print v
   -- print "----------------------------------------------"
+  putStrLn "..."
+  putStrLn "..."
+  putStrLn "..."
+  putStrLn "..."
+  putStrLn "..."
+  print "Compilation Process..."
+  putStrLn "..."
+  putStrLn "..."
+  print "Desugarization Process:"
   -----------------------------------------------------
   let desugarized = desugarize ast
   -- r <- evaluate desugarized
@@ -39,21 +49,36 @@ main = do
   --   Left msg -> print msg
   --   Right v -> print v
   -- print ".............................................."
-  print "Source Code:"
+  putStrLn "..."
+  print "Original Source Code:"
 
   putStrLn $ List.intercalate ";\n" $ List.map show ast
-  print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  putStrLn "..."
+  putStrLn "..."
+  putStrLn "..."
+  putStrLn "..."
+  putStrLn "..."
+  -- print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   print "Desugared Form:"
   putStrLn $ List.intercalate ";\n" $ List.map show desugarized
-  print "______________________________________________"
-  ------------------------
-  let (prg, zipper, insts) = translate ast
-  print "Program State:"
-  print prg
-  print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-  print $ right zipper
-  print "Instructions:"
-  print insts
+  -- putStrLn "..."
+  -- putStrLn "..."
+  -- putStrLn "..."
+  -- putStrLn "..."
+  -- putStrLn "..."
+  -- print "Translation Process..."
+  -- -- print "______________________________________________"
+  -- ------------------------
+  -- let (prg, zipper, insts) = translate ast
+  -- print "VM Program State:"
+  -- print prg
+  -- -- print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+  -- -- print $ right zipper
+  -- putStrLn "..."
+  -- putStrLn "..."
+  -- putStrLn "..."
+  -- print "VM Program Instructions:"
+  -- print insts
   -- print ".............................................."
   -- print ".............................................."
   -- let iniVMState = State  { ctx = [ Frame { arguments = [], variables = [], caller = 0 } ]

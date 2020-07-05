@@ -7,7 +7,7 @@ import qualified Data.List as List
 
 
 desugarize :: [AST] -> [AST]
-desugarize = localFnsToGlobal . blocksToLambdas
+desugarize =  localFnsToGlobal . blocksToLambdas
 
 
 blocksToLambdas :: [AST] -> [AST]

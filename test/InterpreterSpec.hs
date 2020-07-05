@@ -17,12 +17,6 @@ eval source =
   -- (evaluate.toAst) source >>= (\ v -> return $ fromRight (Error "Failed") v)
   fromRight (Error "Failed") <$> (evaluate $ toAst source)
 
--- eval source = do
---   action <- (evaluate.toAst) source
---   case action of
---     Right v -> return v
-
-
 spec :: Spec
 spec = describe "Test the AST Interpreter" $ do
   describe "Programs with Arithmetics and Variables" $ do

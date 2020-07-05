@@ -1,0 +1,10 @@
+function foo (arg) ->
+  begin
+  function innerFn (arg2) ->
+    begin
+    function innermostFn (arg3) -> arg + arg2 + arg3;
+    innermostFn(arg2)
+    end;
+  innerFn(arg)
+  end;
+foo(23)
