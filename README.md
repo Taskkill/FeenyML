@@ -16,7 +16,7 @@ programming language inspired by [https://github.com/CuppoJava/Feeny/](https://g
 - ### Lexer is generated with Alex from `grammar/scanner.x`
 - ### Parser is generated with Happy from `grammar/parser.y`
 - ### AST Intepreter is trivial and not really best piece of Haskell code ever - you have been warned
-- ### Compiler is vastly unfinished - really great part is Desugarizer which I am kind of proud of
+- ### Compiler is vastly unfinished - really great part is Desugarizer which I kinda like
 - ### VM is partially implemented - I have done a lot of work here - but right now I am not sure how much is left
 
 
