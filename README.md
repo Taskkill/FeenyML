@@ -1,4 +1,7 @@
 # feenyml
+
+programming language inspired by [https://github.com/CuppoJava/Feeny/](https://github.com/CuppoJava/Feeny/)
+
 ## Project consists of:
 - ### Lexer
 - ### Parser
@@ -139,7 +142,7 @@ or you can see almost complete output of `stack run feenyml-exe < codes/faact.fm
 
 Speaking of which - first part of the compilation is desugarization of the code.
 
-We were to target Feeny bytecode with it's stack oriented VM.
+We were to target Feeny bytecode with it's stack oriented VM. [https://www.dropbox.com/s/2jzr5pzh3oah8un/ex3.pdf](https://www.dropbox.com/s/2jzr5pzh3oah8un/ex3.pdf)
 
 For that to work I needed to desugarize both code blocks - because that's something the original Feeny does not know.
 And also local functions - I find them very nice addition to my language so I embraced them as much as possible. Our goal was to not implement closure - but next best thing to having closures is to have local functions, which you can invoke and they will be able to access surrounding context of the local block. I consider it really neat.
