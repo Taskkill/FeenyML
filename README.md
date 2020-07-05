@@ -1,4 +1,20 @@
 # feenyml
+## Project consists of:
+- ### Lexer
+- ### Parser
+- ### AST Interpreter (Mostly Complete - the good parts are done - some OOP features are not)
+- ### Compiler (Incomplete)
+  - #### Desugarizer
+  - #### Actual Translator (Incomplete)
+- ### VM (Partially Done)
+
+
+## Tech:
+- ### Lexer is generated with Alex from `grammar/scanner.x`
+- ### Parser is generated with Happy from `grammar/parser.y`
+- ### AST Intepreter is trivial and not really best piece of Haskell code ever - you have been warned
+- ### Compiler is vastly unfinished - really great part is Desugarizer which I am kind of proud of
+- ### VM is partially implemented - I have done a lot of work here - but right now I am not sure how much is left
 
 
 FeenyML is very simple programming language.
