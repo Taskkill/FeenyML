@@ -59,7 +59,7 @@ test
 ```
 
 
-#### After each line of code there must be semicolon - only exception is the last line - after which it must not be placed
+#### After each line of code there must be semicolon - only exception is the last line - after which it must not be placed.
 
 
 Blocks:
@@ -71,6 +71,8 @@ end
 
 Block is a expression. It returns value of the last expression inside of it. Once again - each line of code has to end with semicolon except the last one.
 
+#### Similarly to the block - returning value of it's last expression - FML program returns (exits with) the value of it's last expression. (The one without the semicolon.)
+
 
 
 Short Functions:
@@ -78,6 +80,8 @@ Short Functions:
 function foo (a, b) -> a + b;
 
 function bar (a) -> foo(a, a);
+
+bar (4)
 ```
 
 
